@@ -258,19 +258,36 @@ SkillChoiceSection:NewToggle("Start Using Skill", "Toggle selected skill", funct
 end)
 
 local FarmLevelSection = FarmTab:NewSection("Farm Level All")
-local farmSettings = {
-    {levelRange = {1, 10}, npcName = "Bad Gi", questNPC = "Giorno"},
-    {levelRange = {10, 20}, npcName = "Scary Monster", questNPC = "Scared Noob"},
-    {levelRange = {21, 30}, npcName = "Giorno Giovanna", questNPC = "Koichi"},
-    {levelRange = {31, 40}, npcName = "Rker Dummy", questNPC = "aLLmemester"},
-    {levelRange = {41, 50}, npcName = "Yoshikage Kira", questNPC = "Okayasu"},
-    {levelRange = {51, 60}, npcName = "Dio Over Heaven", questNPC = "Joseph Joestar"},
-    {levelRange = {61, 100}, npcName = "Angelo", questNPC = "Josuke"},
-    {levelRange = {101, 125}, npcName = "Alien", questNPC = "Rohan"},
-    {levelRange = {126, 150}, npcName = "Jotaro Part 4", questNPC = "DIO"},
-    {levelRange = {151, 200}, npcName = "Kakyoin", questNPC = "Muhammed Avdol"},
-    {levelRange = {201, 275}, npcName = "Sewer Vampire", questNPC = "Zeppeli"},
-    {levelRange = {276, math.huge}, npcName = "Pillerman", questNPC = "Young Joseph"}
+
+-- ใช้ MonSettings แทน farmSettings
+local MonSettings = {
+    ["Bad Gi [Lvl. 1+]"] = {"Bad Gi", "Giorno"},
+    ["Scary Monster [Lvl. 10+]"] = {"Scary Monster", "Scared Noob"},
+    ["Giorno Giovanna [Lvl. 20+]"] = {"Giorno Giovanna", "Koichi"},
+    ["Rker Dummy [Lvl. 30+]"] = {"Rker Dummy", "aLLmemester"},
+    ["Yoshikage Kira [Lvl. 40+]"] = {"Yoshikage Kira", "Okayasu"},
+    ["Dio Over Heaven [Lvl. 50+]"] = {"Dio Over Heaven", "Joseph Joestar"},
+    ["Angelo [Lvl. 75+]"] = {"Angelo", "Josuke"},
+    ["Alien [Lvl. 100+]"] = {"Alien", "Rohan"},
+    ["Jotaro Part 4 [Lvl. 125+]"] = {"Jotaro Part 4", "DIO"},
+    ["Kakyoin [Lvl. 150+]"] = {"Kakyoin", "Muhammed Avdol"},
+    ["Sewer Vampire [Lvl. 200+]"] = {"Sewer Vampire", "Zeppeli"},
+    ["Pillerman [Lvl. 275+]"] = {"Pillerman", "Young Joseph"}
+}
+
+local levelMap = {
+    {minLevel = 1, maxLevel = 10, name = "Bad Gi [Lvl. 1+]"},
+    {minLevel = 10, maxLevel = 20, name = "Scary Monster [Lvl. 10+]"},
+    {minLevel = 21, maxLevel = 30, name = "Giorno Giovanna [Lvl. 20+]"},
+    {minLevel = 31, maxLevel = 40, name = "Rker Dummy [Lvl. 30+]"},
+    {minLevel = 41, maxLevel = 50, name = "Yoshikage Kira [Lvl. 40+]"},
+    {minLevel = 51, maxLevel = 60, name = "Dio Over Heaven [Lvl. 50+]"},
+    {minLevel = 61, maxLevel = 100, name = "Angelo [Lvl. 75+]"},
+    {minLevel = 101, maxLevel = 125, name = "Alien [Lvl. 100+]"},
+    {minLevel = 126, maxLevel = 150, name = "Jotaro Part 4 [Lvl. 125+]"},
+    {minLevel = 151, maxLevel = 200, name = "Kakyoin [Lvl. 150+]"},
+    {minLevel = 201, maxLevel = 275, name = "Sewer Vampire [Lvl. 200+]"},
+    {minLevel = 276, maxLevel = math.huge, name = "Pillerman [Lvl. 275+]"}
 }
 
 local isFarming = false
@@ -281,12 +298,28 @@ FarmLevelSection:NewToggle("Auto Farm Level All", "Farm based on level", functio
     task.spawn(function()
         while _G.AutoFarm do
             local char = waitForCharacter()
+            if not char or not LocalPlayer.Data or not LocalPlayer.Data.Level then
+                task.wait(0.5)
+                continue
+            end
             local level = LocalPlayer.Data.Level.Value or 1
-            for _, setting in ipairs(farmSettings) do
-                if level >= setting.levelRange[1] and level <= setting.levelRange[2] then
-                    autoFarmNPC(setting.npcName, setting.questNPC, {Disc2, Disc, Disc3})
+            local matchedSetting = nil
+
+            -- หา Setting ที่ตรงกับระดับของผู้เล่นจาก levelMap
+            for _, setting in ipairs(levelMap) do
+                if level >= setting.minLevel and level <= setting.maxLevel then
+                    matchedSetting = MonSettings[setting.name]
                     break
                 end
+            end
+
+            if matchedSetting then
+                -- เรียก autoFarmNPC ด้วยพารามิเตอร์จาก MonSettings
+                autoFarmNPC(matchedSetting[1], matchedSetting[2], {Disc, Disc3}, function()
+                    return _G.AutoFarm -- ตรวจสอบว่ายังเปิดฟาร์มอยู่
+                end)
+            else
+                task.wait(1) -- รอถ้าไม่พบ Setting ที่เหมาะสม
             end
             task.wait(0.6)
         end
