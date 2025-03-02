@@ -208,28 +208,15 @@ end
 local FarmTab = Window:NewTab("Farm")
 local FarmSection = FarmTab:NewSection("Farm Level to Auto Quests")
 
--- เพิ่มตัวเลือกตำแหน่ง (ใช้ Y และ Z ด้วย TextBox)
-FarmSection:NewDropdown("Farm Position", "Choose farming position", {"Top", "Middle", "Bottom"}, function(choice)
-    PositionChoice = choice
-end)
+-- เพิ่ม Slider สำหรับ Set Y Value
+FarmSection:NewSlider("Set Y Value", "Adjust Y offset (-30 to 30)", -30, 30, function(value)
+    Disc = value -- อัปเดตค่า Disc ตามค่า Slider
+end, {Default = 2, Step = 1}) -- ค่าเริ่มต้น 2, เพิ่ม/ลดทีละ 1
 
-FarmSection:NewTextBox("Set Y Value", "Enter Y offset (-30 to 30)", function(value)
-    local num = tonumber(value)
-    if num and num >= -30 and num <= 30 then
-        Disc = num
-    else
-        Disc = 2 -- ค่าเริ่มต้นถ้าป้อนไม่ถูกต้อง
-    end
-end)
-
-FarmSection:NewTextBox("Set Z Value", "Enter Z offset (-30 to 30)", function(value)
-    local num = tonumber(value)
-    if num and num >= -30 and num <= 30 then
-        Disc3 = num
-    else
-        Disc3 = 7 -- ค่าเริ่มต้นถ้าป้อนไม่ถูกต้อง
-    end
-end)
+-- เพิ่ม Slider สำหรับ Set Z Value
+FarmSection:NewSlider("Set Z Value", "Adjust Z offset (-30 to 30)", -30, 30, function(value)
+    Disc3 = value -- อัปเดตค่า Disc3 ตามค่า Slider
+end, {Default = 7, Step = 1}) -- ค่าเริ่มต้น 7, เพิ่ม/ลดทีละ 1
 
 local SkillSection = FarmTab:NewSection("Auto Use Skill")
 SkillSection:NewToggle("Use All Skills", "Auto-use all applicable skills", function(state)
