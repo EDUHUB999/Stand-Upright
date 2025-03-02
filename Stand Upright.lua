@@ -268,8 +268,8 @@ local farmSettings = {
     {levelRange = {61, 100}, npcName = "Angelo", questNPC = "Josuke"},
     {levelRange = {101, 125}, npcName = "Alien", questNPC = "Rohan"},
     {levelRange = {126, 150}, npcName = "Jotaro Part 4", questNPC = "DIO"},
-    {levelRange = {151, 200}, npcName = "Kakyoin", questNPC = "Giorno"},
-    {levelRange = {201, 275}, npcName = "Sewer Vampire", questNPC = "Giorno"},
+    {levelRange = {151, 200}, npcName = "Kakyoin", questNPC = "Muhammed Avdol"},
+    {levelRange = {201, 275}, npcName = "Sewer Vampire", questNPC = "Zeppeli"},
     {levelRange = {276, math.huge}, npcName = "Pillerman", questNPC = "Young Joseph"}
 }
 
