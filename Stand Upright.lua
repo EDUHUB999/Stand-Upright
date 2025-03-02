@@ -1,6 +1,9 @@
 -- Global Toggle
 getgenv().BeginFarm = false
 
+local ScreenGui = Instance.new("ScreenGui")
+local Frame_1 = Instance.new("Frame")
+local ImageButton_1 = Instance.new("ImageButton")
 -- Services
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
@@ -666,6 +669,46 @@ end)
 CombatSection:NewSlider("Kill Aura Range", "Set range for Kill Aura", 5, 50, function(range)
     KillAuraRange = range
 end, {Default = 10, Step = 1})
+
+
+local ScreenGui = Instance.new("ScreenGui")
+local Frame = Instance.new("Frame")
+local UICorner = Instance.new("UICorner")
+local TextLabel = Instance.new("TextLabel")
+local TextLabel_2 = Instance.new("TextLabel")
+
+ScreenGui.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")
+
+Frame.Parent = ScreenGui
+Frame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+Frame.ClipsDescendants = true
+Frame.Position = UDim2.new(0.022813689, 0, 0.0541082174, 0)
+Frame.Size = UDim2.new(0, 79, 0, 56)
+
+UICorner.Parent = Frame
+
+TextLabel.Parent = Frame
+TextLabel.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+TextLabel.BackgroundTransparency = 1.000
+TextLabel.Position = UDim2.new(0.129077807, 0, 0.400000036, 0)
+TextLabel.Size = UDim2.new(0, 31, 0, 30)
+TextLabel.Font = Enum.Font.SourceSansBold
+TextLabel.Text = "60"
+TextLabel.TextColor3 = Color3.fromRGB(255, 0, 0)
+TextLabel.TextSize = 34.000
+TextLabel.TextWrapped = true
+
+TextLabel_2.Parent = Frame
+TextLabel_2.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+TextLabel_2.BackgroundTransparency = 1.000
+TextLabel_2.Position = UDim2.new(0.127986133, 0, 0.132142887, 0)
+TextLabel_2.Size = UDim2.new(0, 29, 0, 15)
+TextLabel_2.Font = Enum.Font.SourceSansBold
+TextLabel_2.Text = "FPS"
+TextLabel_2.TextColor3 = Color3.fromRGB(255, 0, 0)
+TextLabel_2.TextScaled = true
+TextLabel_2.TextSize = 34.000
+TextLabel_2.TextWrapped = true
 
 -- Settings Tab
 local KeybindTab = Window:NewTab("Settings")
