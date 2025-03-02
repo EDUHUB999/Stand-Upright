@@ -96,7 +96,6 @@ local function autoFarmNPC(npcName, questNPC, customPos, conditionFunc)
             local hrp = char.HumanoidRootPart
             local foundTarget = false
 
-            -- ลูปหามอนสเตอร์ใหม่
             for _, npc in pairs(Workspace.Living:GetChildren()) do
                 if npc.Name == npcName and npc:FindFirstChild("Humanoid") and npc.Humanoid.Health > 0 and (not conditionFunc or conditionFunc()) then
                     foundTarget = true
@@ -109,8 +108,8 @@ local function autoFarmNPC(npcName, questNPC, customPos, conditionFunc)
                     -- ใช้ BodyPosition กับ Damping เพื่อลดการสั่น
                     local bodyPosition = hrp:FindFirstChild("AntiGravity") or Instance.new("BodyPosition")
                     bodyPosition.Name = "AntiGravity"
-                    bodyPosition.MaxForce = Vector3.new(3000, 3000, 3000) -- ลด MaxForce เพื่อลดการสั่น
-                    bodyPosition.D = 150 -- เพิ่ม Damping เพื่อนิ่งขึ้น
+                    bodyPosition.MaxForce = Vector3.new(3000, 3000, 3000)
+                    bodyPosition.D = 150
                     bodyPosition.Position = hrp.Position
                     bodyPosition.Parent = hrp
 
@@ -127,15 +126,15 @@ local function autoFarmNPC(npcName, questNPC, customPos, conditionFunc)
                         if PositionChoice == "Top" then
                             -- เหนือหัวมอน (ใช้ค่าเสถียร +7)
                             targetPosition = npcHRP.Position + Vector3.new(0, 7 + Disc, Disc3)
-                            targetOrientation = CFrame.lookAt(targetPosition, npcHRP.Position) -- หันหน้าลงไปหามอน
+                            targetOrientation = CFrame.lookAt(targetPosition, npcHRP.Position)
                         elseif PositionChoice == "Middle" then
                             -- ตรงกลางมอน (ระดับ HumanoidRootPart)
                             targetPosition = npcHRP.Position + Vector3.new(0, Disc, Disc3)
-                            targetOrientation = CFrame.lookAt(targetPosition, npcHRP.Position) -- หันหน้าไปหามอน
+                            targetOrientation = CFrame.lookAt(targetPosition, npcHRP.Position)
                         elseif PositionChoice == "Bottom" then
                             -- ใต้ตีนมอน (ใช้ค่าเสถียร -5)
                             targetPosition = npcHRP.Position + Vector3.new(0, -5 + Disc, Disc3)
-                            targetOrientation = CFrame.lookAt(targetPosition, npcHRP.Position) -- หันหน้าขขึ้นไปหามอน
+                            targetOrientation = CFrame.lookAt(targetPosition, npcHRP.Position)
                         end
 
                         -- อัปเดตตำแหน่งผู้เล่นอย่างนิ่มนวล
@@ -143,16 +142,18 @@ local function autoFarmNPC(npcName, questNPC, customPos, conditionFunc)
                         if distance > 0.5 then
                             bodyPosition.Position = targetPosition
                         else
-                            bodyPosition.Position = hrp.Position -- หยุดเคลื่อนเมื่อใกล้พอ
+                            bodyPosition.Position = hrp.Position
                         end
 
-                        -- อัปเดตทิศทางผู้เล่นและ Stand อย่างลื่นไหล
+                        -- อัปเดตทิศทางผู้เล่นอย่างลื่นไหล
                         if (hrp.CFrame.lookVector - targetOrientation.lookVector).Magnitude > 0.1 then
                             safeCFrameTeleport(hrp, targetOrientation)
-                            -- หัน Stand ตามทิศทางของผู้เล่น
-                            if standHRP then
-                                safeCFrameTeleport(standHRP, targetOrientation)
-                            end
+                        end
+
+                        -- ปรับตำแหน่ง Stand ให้ห่างจากผู้เล่นเล็กน้อย (เช่น 2 หน่วยข้างหน้า)
+                        if standHRP then
+                            local standOffset = targetOrientation * CFrame.new(0, 0, -2) -- ห่างออก 2 หน่วยด้านหน้า
+                            safeCFrameTeleport(standHRP, standOffset)
                         end
                     end)
 
@@ -165,41 +166,44 @@ local function autoFarmNPC(npcName, questNPC, customPos, conditionFunc)
                         if not LocalPlayer.PlayerGui.CDgui.fortnite:FindFirstChild("Punch") then
                             fireServerSafe(char.StandEvents.M1)
                         end
-                        task.wait(0.1) -- ลดเป็น 0.1 เพื่อตรวจสอบสถานะมอนบ่อยขึ้น
+                        task.wait(0.1)
                     until npc.Humanoid.Health <= 0 or (not _G.AutoFarm and not _G.AutoFarmSpecific)
 
                     if charConnection then
-                        charConnection:Disconnect() -- หยุดการอัปเดต RenderStepped
+                        charConnection:Disconnect()
                     end
 
                     if hrp:FindFirstChild("AntiGravity") then
-                        hrp.AntiGravity:Destroy() -- ทำลาย BodyPosition ทันที
+                        hrp.AntiGravity:Destroy()
                     end
 
-                    -- วาร์ปตัวผู้เล่นกลับสู่พื้นหลังหยุดฟาร์ม
                     if not (_G.AutoFarm or _G.AutoFarmSpecific) then
-                        local groundPosition = hrp.Position - Vector3.new(0, hrp.Position.Y - 5, 0) -- วาร์ปลงพื้น (ลด Y ลง 5 หน่วย)
+                        local groundPosition = hrp.Position - Vector3.new(0, hrp.Position.Y - 5, 0)
                         safeCFrameTeleport(hrp, CFrame.new(groundPosition))
                         if standHRP then
-                            safeCFrameTeleport(standHRP, CFrame.new(groundPosition)) -- วาร์ป Stand ลงพื้นด้วย
+                            safeCFrameTeleport(standHRP, CFrame.new(groundPosition + Vector3.new(0, 0, -2))) -- ห่างจากผู้เล่นเล็กน้อย
                         end
                     end
 
-                    -- วาร์ปไปมอนตัวใหม่ทันทีหลังฆ่ามอนเสร็จ
                     if _G.AutoFarm or _G.AutoFarmSpecific then
-                        safeCFrameTeleport(hrp, hrp.CFrame + Vector3.new(0, 10, 1000)) -- วาร์ปขึ้นสูงชั่วครู่
-                        task.wait(0.5) -- รอให้เซิร์ฟเวอร์อัปเดต
+                        safeCFrameTeleport(hrp, hrp.CFrame + Vector3.new(0, 10, 1000))
+                        if standHRP then
+                            safeCFrameTeleport(standHRP, hrp.CFrame + Vector3.new(0, 10, 1002)) -- ห่างจากผู้เล่นเล็กน้อย
+                        end
+                        task.wait(0.5)
                     end
                     break
                 end
             end
 
-            -- ถ้าไม่พบมอนตัวใหม่ รอและลองใหม่
             if not foundTarget and (_G.AutoFarm or _G.AutoFarmSpecific) then
-                task.wait(1) -- รอ 1 วินาทีเพื่อให้มอนตัวใหม่ spawn
-                safeCFrameTeleport(hrp, hrp.CFrame + Vector3.new(0, 10, 1000)) -- วาร์ปขึ้นสูงเพื่อหามอนตัวใหม่
+                task.wait(1)
+                safeCFrameTeleport(hrp, hrp.CFrame + Vector3.new(0, 10, 1000))
+                if standHRP then
+                    safeCFrameTeleport(standHRP, hrp.CFrame + Vector3.new(0, 10, 1002)) -- ห่างจากผู้เล่นเล็กน้อย
+                end
             end
-            task.wait(0.6) -- รักษาความถี่ 0.6 นอกลูป
+            task.wait(0.6)
         end
     end)
 end
