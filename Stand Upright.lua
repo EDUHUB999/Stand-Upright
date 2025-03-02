@@ -188,7 +188,7 @@ local function autoFarmNPC(npcName, questNPC, customPos, conditionFunc)
 
                     if _G.AutoFarm or _G.AutoFarmSpecific then
                         -- วาร์ปไปไกลเพื่อรีเซ็ตมอนสเตอร์ (เพิ่มระยะเป็น 1000 หน่วย)
-                        local resetPosition = hrp.CFrame + Vector3.new(0, 10, 1000)
+                        local resetPosition = hrp.CFrame + Vector3.new(0, 10, 400)
                         safeCFrameTeleport(hrp, resetPosition)
                         if standHRP then
                             safeCFrameTeleport(standHRP, resetPosition + Vector3.new(0, 0, -2))
@@ -201,7 +201,7 @@ local function autoFarmNPC(npcName, questNPC, customPos, conditionFunc)
 
             if not foundTarget and (_G.AutoFarm or _G.AutoFarmSpecific) then
                 -- วาร์ปไปไกลเมื่อไม่เจอมอนสเตอร์ (เพิ่มระยะเป็น 1000 หน่วย)
-                local resetPosition = hrp.CFrame + Vector3.new(0, 10, 1000)
+                local resetPosition = hrp.CFrame + Vector3.new(0, 10, 400)
                 safeCFrameTeleport(hrp, resetPosition)
                 if standHRP then
                     safeCFrameTeleport(standHRP, resetPosition + Vector3.new(0, 0, -2))
@@ -370,12 +370,13 @@ SelectFarmSection:NewToggle("Start Farm Level", "Start farming selected NPC", fu
 end)
 
 local DungeonSection = FarmTab:NewSection("Auto Farm Dungeon")
-local DunLvl = {"Dungeon [Lvl.15+]", "Dungeon [Lvl.40+]", "Dungeon [Lvl.80+]", "Dungeon [Lvl.100+]", "Dungeon [Lvl.200+]"}
-
-DungeonSection:NewDropdown("Choose Dungeon", "Select a dungeon", DunLvl, function(dun)
-    ChDun = dun
-end)
-
+local DunLvl = {
+    "Dungeon [Lvl.15+]",
+    "Dungeon [Lvl.40+]",
+    "Dungeon [Lvl.80+]",
+    "Dungeon [Lvl.100+]",
+    "Dungeon [Lvl.200+]"
+}
 local dungeonSettings = {
     ["Dungeon [Lvl.15+]"] = {"i_stabman [Lvl. 15+]", "Bad Gi Boss"},
     ["Dungeon [Lvl.40+]"] = {"i_stabman [Lvl. 40+]", "Dio [Dungeon]"},
@@ -384,39 +385,111 @@ local dungeonSettings = {
     ["Dungeon [Lvl.200+]"] = {"i_stabman [Lvl. 200+]", "Jotaro P6 [Dungeon]"}
 }
 
+DungeonSection:NewDropdown("Choose Dungeon", "Select a dungeon", DunLvl, function(AuDun)
+    local STXClient = loadstring(game:HttpGet("https://raw.githubusercontent.com/BocusLuke/UI/main/STX/Client.Lua"))()
+    STXClient:Notify({
+        Title = "Press Start Farm Dungeon✅",
+        Description = "Saving the Dungeon please wait......✅"
+    }, {
+        OutlineColor = Color3.fromRGB(128, 17, 255),
+        Time = 2,
+        Type = "default"
+    })
+    task.wait(0.2)
+    ChDun = AuDun
+end)
+
 DungeonSection:NewToggle("Start Farm Dungeon", "Toggle dungeon farming", function(state)
     _G.AutoFarmDungeon = state
-    if not ChDun or not dungeonSettings[ChDun] then return end
+    if not ChDun or not dungeonSettings[ChDun] then
+        _G.AutoFarmDungeon = false
+        warn("No dungeon selected or invalid dungeon settings!")
+        return
+    end
+
     task.spawn(function()
         while _G.AutoFarmDungeon do
             local char = waitForCharacter()
-            if not char then continue end
-            local hrp = char.HumanoidRootPart
-            for _, npc in pairs(Workspace.Map.NPCs:GetDescendants()) do
-                if npc.Name:find("i_stabman") and npc:FindFirstChild("Head") and npc.Head.Main.Text.Text == dungeonSettings[ChDun][1] then
-                    fireServerSafe(npc:FindFirstChild("Done"))
-                end
+            if not char or not char:FindFirstChild("HumanoidRootPart") then
+                task.wait(0.5)
+                continue
             end
-            for _, boss in pairs(Workspace.Living:GetChildren()) do
-                if boss.Name == "Boss" and boss.Humanoid.Health > 0 and boss.Head.Display.Frame.t.Text == dungeonSettings[ChDun][2] then
-                    repeat
-                        local targetCFrame = boss.HumanoidRootPart.CFrame * CFrame.new(Disc2, Disc, Disc3)
-                        if (hrp.Position - targetCFrame.Position).Magnitude > 1 then
-                            safeCFrameTeleport(hrp, targetCFrame)
+            local hrp = char:WaitForChild("HumanoidRootPart")
+            local stand = char:FindFirstChild("Stand")
+            local standHRP = stand and stand:WaitForChild("HumanoidRootPart")
+            local foundBoss = false
+
+            -- รับเควสจาก NPC
+            pcall(function()
+                for _, npc in pairs(Workspace.Map.NPCs:GetDescendants()) do
+                    if npc.Name:find("i_stabman") and npc:FindFirstChild("Head") and npc.Head:FindFirstChild("Main") and npc.Head.Main:FindFirstChild("Text") then
+                        if npc.Head.Main.Text.Text == dungeonSettings[ChDun][1] then
+                            local npcHRP = npc:FindFirstChild("HumanoidRootPart")
+                            if npcHRP and (hrp.Position - npcHRP.Position).Magnitude > 5 then
+                                safeCFrameTeleport(hrp, npcHRP.CFrame + Vector3.new(0, 3, 5))
+                                if standHRP then
+                                    safeCFrameTeleport(standHRP, hrp.CFrame + Vector3.new(0, 0, -2))
+                                end
+                            end
+                            fireServerSafe(npc:FindFirstChild("Done"))
+                            task.wait(0.5) -- รอให้เควสเริ่ม
                         end
-                        if not char.Aura.Value then
-                            fireServerSafe(char.StandEvents.Summon)
-                        end
-                        if not LocalPlayer.PlayerGui.CDgui.fortnite:FindFirstChild("Punch") then
-                            fireServerSafe(char.StandEvents.M1)
-                        end
-                        task.wait(0.1)
-                    until boss.Humanoid.Health <= 0 or not _G.AutoFarmDungeon
-                    if _G.AutoFarmDungeon then
-                        safeCFrameTeleport(hrp, hrp.CFrame + Vector3.new(0, 10, 1000))
                     end
-                    break
                 end
+            end)
+
+            -- หาและโจมตีบอส
+            pcall(function()
+                for _, boss in pairs(Workspace.Living:GetChildren()) do
+                    if boss.Name == "Boss" and boss:FindFirstChild("Humanoid") and boss.Humanoid.Health > 0 and boss:FindFirstChild("Head") and boss.Head:FindFirstChild("Display") and boss.Head.Display:FindFirstChild("Frame") and boss.Head.Display.Frame:FindFirstChild("t") then
+                        if boss.Head.Display.Frame.t.Text == dungeonSettings[ChDun][2] then
+                            foundBoss = true
+                            local bossHRP = boss:FindFirstChild("HumanoidRootPart")
+                            if not bossHRP then break end
+
+                            repeat
+                                task.wait(0.1)
+                                pcall(function()
+                                    if char:FindFirstChild("Aura") and not char.Aura.Value then
+                                        fireServerSafe(char.StandEvents.Summon)
+                                    end
+                                    if not LocalPlayer.PlayerGui.CDgui.fortnite:FindFirstChild("Punch") then
+                                        fireServerSafe(char.StandEvents.M1)
+                                    end
+                                    hrp.Velocity = Vector3.new(0, 0, 0)
+                                    if _G.AutoFarmDungeon then
+                                        safeCFrameTeleport(hrp, bossHRP.CFrame * CFrame.new(0, Disc, Disc3))
+                                        if standHRP then
+                                            safeCFrameTeleport(standHRP, bossHRP.CFrame * CFrame.new(0, Disc, Disc3 - 4))
+                                        end
+                                    else
+                                        safeCFrameTeleport(hrp, CFrame.new(0, 50, 0))
+                                        if standHRP then
+                                            safeCFrameTeleport(standHRP, CFrame.new(0, 50, -2))
+                                        end
+                                    end
+                                end)
+                            until boss.Humanoid.Health <= 0 or not _G.AutoFarmDungeon
+
+                            if _G.AutoFarmDungeon then
+                                safeCFrameTeleport(hrp, hrp.CFrame + Vector3.new(0, 10, 1000))
+                                if standHRP then
+                                    safeCFrameTeleport(standHRP, hrp.CFrame + Vector3.new(0, 0, -2))
+                                end
+                                task.wait(0.5)
+                            end
+                            break
+                        end
+                    end
+                end
+            end)
+
+            if not foundBoss then
+                safeCFrameTeleport(hrp, hrp.CFrame + Vector3.new(0, 10, 1000))
+                if standHRP then
+                    safeCFrameTeleport(standHRP, hrp.CFrame + Vector3.new(0, 0, -2))
+                end
+                task.wait(1)
             end
             task.wait(0.6)
         end
