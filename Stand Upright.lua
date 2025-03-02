@@ -37,8 +37,8 @@ local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/EVILD
 local Window = Library.CreateLib("EDU HUB : Stand Upright : Rebooted", "BloodTheme")
 
 -- Default Values
-local Disc = 2 -- Default Y offset
-local Disc3 = 7 -- Default Z offset
+local Disc = 7 -- Default Y offset
+local Disc3 = 0 -- Default Z offset
 local Amount = 1 -- Default buy amount
 local PositionChoice = "Middle" -- ตัวเลือกตำแหน่งเริ่มต้น
 
