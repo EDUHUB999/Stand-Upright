@@ -310,8 +310,8 @@ local MonSettings = {
     ["Angelo [Lvl. 75+]"] = {"Angelo", "Josuke"},
     ["Alien [Lvl. 100+]"] = {"Alien", "Rohan"},
     ["Jotaro Part 4 [Lvl. 125+]"] = {"Jotaro Part 4", "DIO"},
-    ["Kakyoin [Lvl. 150+]"] = {"Kakyoin", "Giorno"},
-    ["Sewer Vampire [Lvl. 200+]"] = {"Sewer Vampire", "Giorno"},
+    ["Kakyoin [Lvl. 150+]"] = {"Kakyoin", "Muhammed Avdol"},
+    ["Sewer Vampire [Lvl. 200+]"] = {"Sewer Vampire", "Zeppeli"},
     ["Pillerman [Lvl. 275+]"] = {"Pillerman", "Young Joseph"}
 }
 
