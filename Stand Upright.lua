@@ -10,7 +10,6 @@ local Workspace = game:GetService("Workspace")
 local RunService = game:GetService("RunService")
 
 -- GUI Setup
-local a=loadstring(game:HttpGet("https://raw.githubusercontent.com/BocusLuke/UI/main/STX/Module.Lua"))()local b=loadstring(game:HttpGet("https://raw.githubusercontent.com/BocusLuke/UI/main/STX/Client.Lua"))()b:Notify({Title="⚔Loading EDU HUB⚔",Description="Please Wait✅"},{OutlineColor=Color3.fromRGB(128,17,255),Time=3,Type="default"})wait(3)
 local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/EVILDARKSIDEUPV1/ui/main/README.md"))()
 local Window = Library.CreateLib("EDU HUB : Stand Upright : Rebooted", "BloodTheme")
 
