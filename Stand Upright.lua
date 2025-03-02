@@ -105,11 +105,12 @@ local function autoFarmNPC(npcName, questNPC, customPos, conditionFunc)
                     fireServerSafe(Workspace.Map.NPCs[questNPC].Done)
                     fireServerSafe(Workspace.Map.NPCs[questNPC].QuestDone)
 
-                    -- ใช้ BodyPosition กับ Damping เพื่อลดการสั่น
+                    -- ใช้ BodyPosition กับค่า MaxForce และ Damping ที่ลดการสั่น
                     local bodyPosition = hrp:FindFirstChild("AntiGravity") or Instance.new("BodyPosition")
                     bodyPosition.Name = "AntiGravity"
-                    bodyPosition.MaxForce = Vector3.new(3000, 3000, 3000)
-                    bodyPosition.D = 150
+                    bodyPosition.MaxForce = Vector3.new(1000, 1000, 1000) -- ลด MaxForce เพื่อลดการดึงแรงเกินไป
+                    bodyPosition.D = 500 -- เพิ่ม Damping เพื่อลดการสั่น
+                    bodyPosition.P = 1000 -- เพิ่ม P (Proportional Gain) เพื่อควบคุมการเคลื่อนไหวอย่างนิ่มนวล
                     bodyPosition.Position = hrp.Position
                     bodyPosition.Parent = hrp
 
@@ -120,37 +121,38 @@ local function autoFarmNPC(npcName, questNPC, customPos, conditionFunc)
                     -- ตัวแปรเก็บตำแหน่งและทิศทางล่าสุด
                     local lastPosition, lastOrientation = hrp.Position, hrp.CFrame
 
-                    -- ใช้ RenderStepped เพื่ออัปเดตทิศทางและตำแหน่งอย่างลื่นไหล
-                    charConnection = RunService.RenderStepped:Connect(function()
+                    -- ใช้ Heartbeat แทน RenderStepped เพื่อลดความถี่การอัปเดต
+                    charConnection = RunService.Heartbeat:Connect(function()
                         local targetPosition, targetOrientation
                         if PositionChoice == "Top" then
-                            -- เหนือหัวมอน (ใช้ค่าเสถียร +7)
                             targetPosition = npcHRP.Position + Vector3.new(0, 7 + Disc, Disc3)
                             targetOrientation = CFrame.lookAt(targetPosition, npcHRP.Position)
                         elseif PositionChoice == "Middle" then
-                            -- ตรงกลางมอน (ระดับ HumanoidRootPart)
                             targetPosition = npcHRP.Position + Vector3.new(0, Disc, Disc3)
                             targetOrientation = CFrame.lookAt(targetPosition, npcHRP.Position)
                         elseif PositionChoice == "Bottom" then
-                            -- ใต้ตีนมอน (ใช้ค่าเสถียร -5)
                             targetPosition = npcHRP.Position + Vector3.new(0, -5 + Disc, Disc3)
                             targetOrientation = CFrame.lookAt(targetPosition, npcHRP.Position)
                         end
 
-                        -- อัปเดตตำแหน่งผู้เล่นอย่างนิ่มนวล
-                        local distance = (hrp.Position - targetPosition).Magnitude
+                        -- อัปเดตตำแหน่งอย่างนิ่มนวล โดยใช้ Lerp เพื่อลดการสั่น
+                        local currentPosition = hrp.Position
+                        local distance = (currentPosition - targetPosition).Magnitude
                         if distance > 0.5 then
-                            bodyPosition.Position = targetPosition
+                            -- ใช้ Lerp เพื่อเคลื่อนไหวอย่างนิ่มนวล
+                            bodyPosition.Position = currentPosition:Lerp(targetPosition, 0.2) -- 0.2 คือความเร็วการ Lerp (ยิ่งต่ำยิ่งนิ่มนวล)
                         else
-                            bodyPosition.Position = hrp.Position
+                            bodyPosition.Position = currentPosition -- หยุดเคลื่อนเมื่อใกล้พอ
                         end
 
-                        -- อัปเดตทิศทางผู้เล่นอย่างลื่นไหล
+                        -- อัปเดตทิศทางอย่างนิ่มนวล
                         if (hrp.CFrame.lookVector - targetOrientation.lookVector).Magnitude > 0.1 then
-                            safeCFrameTeleport(hrp, targetOrientation)
+                            local currentOrientation = hrp.CFrame
+                            local newOrientation = currentOrientation:Lerp(targetOrientation, 0.2) -- Lerp ทิศทาง
+                            safeCFrameTeleport(hrp, newOrientation)
                         end
 
-                        -- ปรับตำแหน่ง Stand ให้ห่างจากผู้เล่นเล็กน้อย (เช่น 2 หน่วยข้างหน้า)
+                        -- ปรับตำแหน่ง Stand ให้ห่างจากผู้เล่นเล็กน้อย (หากมี)
                         if standHRP then
                             local standOffset = targetOrientation * CFrame.new(0, 0, -2) -- ห่างออก 2 หน่วยด้านหน้า
                             safeCFrameTeleport(standHRP, standOffset)
@@ -181,14 +183,14 @@ local function autoFarmNPC(npcName, questNPC, customPos, conditionFunc)
                         local groundPosition = hrp.Position - Vector3.new(0, hrp.Position.Y - 5, 0)
                         safeCFrameTeleport(hrp, CFrame.new(groundPosition))
                         if standHRP then
-                            safeCFrameTeleport(standHRP, CFrame.new(groundPosition + Vector3.new(0, 0, -2))) -- ห่างจากผู้เล่นเล็กน้อย
+                            safeCFrameTeleport(standHRP, CFrame.new(groundPosition + Vector3.new(0, 0, -2)))
                         end
                     end
 
                     if _G.AutoFarm or _G.AutoFarmSpecific then
                         safeCFrameTeleport(hrp, hrp.CFrame + Vector3.new(0, 10, 1000))
                         if standHRP then
-                            safeCFrameTeleport(standHRP, hrp.CFrame + Vector3.new(0, 10, 1002)) -- ห่างจากผู้เล่นเล็กน้อย
+                            safeCFrameTeleport(standHRP, hrp.CFrame + Vector3.new(0, 10, 1002))
                         end
                         task.wait(0.5)
                     end
@@ -200,7 +202,7 @@ local function autoFarmNPC(npcName, questNPC, customPos, conditionFunc)
                 task.wait(1)
                 safeCFrameTeleport(hrp, hrp.CFrame + Vector3.new(0, 10, 1000))
                 if standHRP then
-                    safeCFrameTeleport(standHRP, hrp.CFrame + Vector3.new(0, 10, 1002)) -- ห่างจากผู้เล่นเล็กน้อย
+                    safeCFrameTeleport(standHRP, hrp.CFrame + Vector3.new(0, 10, 1002))
                 end
             end
             task.wait(0.6)
