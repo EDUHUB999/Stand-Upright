@@ -86,6 +86,8 @@ end
 -- Auto Farm NPC Function (ใช้ Y และ Z เท่านั้น)
 local function autoFarmNPC(npcName, questNPC, customPos, conditionFunc)
     local charConnection = nil
+    local safePosition = Vector3.new(0, 50, 0) -- ตำแหน่งปลอดภัยเริ่มต้น (สูงจากพื้น 50 หน่วย เพื่อป้องกันตกแมพ)
+
     task.spawn(function()
         while _G.AutoFarm or _G.AutoFarmSpecific do
             local char = waitForCharacter()
@@ -108,9 +110,9 @@ local function autoFarmNPC(npcName, questNPC, customPos, conditionFunc)
                     -- ใช้ BodyPosition กับค่า MaxForce และ Damping ที่ลดการสั่น
                     local bodyPosition = hrp:FindFirstChild("AntiGravity") or Instance.new("BodyPosition")
                     bodyPosition.Name = "AntiGravity"
-                    bodyPosition.MaxForce = Vector3.new(1000, 1000, 1000) -- ลด MaxForce เพื่อลดการดึงแรงเกินไป
-                    bodyPosition.D = 500 -- เพิ่ม Damping เพื่อลดการสั่น
-                    bodyPosition.P = 1000 -- เพิ่ม P (Proportional Gain) เพื่อควบคุมการเคลื่อนไหวอย่างนิ่มนวล
+                    bodyPosition.MaxForce = Vector3.new(1000, 1000, 1000)
+                    bodyPosition.D = 500
+                    bodyPosition.P = 1000
                     bodyPosition.Position = hrp.Position
                     bodyPosition.Parent = hrp
 
@@ -118,10 +120,7 @@ local function autoFarmNPC(npcName, questNPC, customPos, conditionFunc)
                     local stand = char:FindFirstChild("Stand")
                     local standHRP = stand and stand:FindFirstChild("HumanoidRootPart")
 
-                    -- ตัวแปรเก็บตำแหน่งและทิศทางล่าสุด
-                    local lastPosition, lastOrientation = hrp.Position, hrp.CFrame
-
-                    -- ใช้ Heartbeat แทน RenderStepped เพื่อลดความถี่การอัปเดต
+                    -- อัปเดตตำแหน่งและทิศทาง
                     charConnection = RunService.Heartbeat:Connect(function()
                         local targetPosition, targetOrientation
                         if PositionChoice == "Top" then
@@ -135,26 +134,25 @@ local function autoFarmNPC(npcName, questNPC, customPos, conditionFunc)
                             targetOrientation = CFrame.lookAt(targetPosition, npcHRP.Position)
                         end
 
-                        -- อัปเดตตำแหน่งอย่างนิ่มนวล โดยใช้ Lerp เพื่อลดการสั่น
+                        -- อัปเดตตำแหน่งอย่างนิ่มนวล
                         local currentPosition = hrp.Position
                         local distance = (currentPosition - targetPosition).Magnitude
                         if distance > 0.5 then
-                            -- ใช้ Lerp เพื่อเคลื่อนไหวอย่างนิ่มนวล
-                            bodyPosition.Position = currentPosition:Lerp(targetPosition, 0.2) -- 0.2 คือความเร็วการ Lerp (ยิ่งต่ำยิ่งนิ่มนวล)
+                            bodyPosition.Position = currentPosition:Lerp(targetPosition, 0.2)
                         else
-                            bodyPosition.Position = currentPosition -- หยุดเคลื่อนเมื่อใกล้พอ
+                            bodyPosition.Position = currentPosition
                         end
 
                         -- อัปเดตทิศทางอย่างนิ่มนวล
                         if (hrp.CFrame.lookVector - targetOrientation.lookVector).Magnitude > 0.1 then
                             local currentOrientation = hrp.CFrame
-                            local newOrientation = currentOrientation:Lerp(targetOrientation, 0.2) -- Lerp ทิศทาง
+                            local newOrientation = currentOrientation:Lerp(targetOrientation, 0.2)
                             safeCFrameTeleport(hrp, newOrientation)
                         end
 
-                        -- ปรับตำแหน่ง Stand ให้ห่างจากผู้เล่นเล็กน้อย (หากมี)
+                        -- ปรับตำแหน่ง Stand
                         if standHRP then
-                            local standOffset = targetOrientation * CFrame.new(0, 0, -2) -- ห่างออก 2 หน่วยด้านหน้า
+                            local standOffset = targetOrientation * CFrame.new(0, 0, -4)
                             safeCFrameTeleport(standHRP, standOffset)
                         end
                     end)
@@ -180,17 +178,20 @@ local function autoFarmNPC(npcName, questNPC, customPos, conditionFunc)
                     end
 
                     if not (_G.AutoFarm or _G.AutoFarmSpecific) then
-                        local groundPosition = hrp.Position - Vector3.new(0, hrp.Position.Y - 5, 0)
-                        safeCFrameTeleport(hrp, CFrame.new(groundPosition))
+                        -- วาร์ปไปยังตำแหน่งปลอดภัยเมื่อปิดฟาร์ม
+                        local safeCFrame = CFrame.new(safePosition) * CFrame.Angles(0, math.rad(0), 0)
+                        safeCFrameTeleport(hrp, safeCFrame)
                         if standHRP then
-                            safeCFrameTeleport(standHRP, CFrame.new(groundPosition + Vector3.new(0, 0, -2)))
+                            safeCFrameTeleport(standHRP, safeCFrame + Vector3.new(0, 0, -2))
                         end
                     end
 
                     if _G.AutoFarm or _G.AutoFarmSpecific then
-                        safeCFrameTeleport(hrp, hrp.CFrame + Vector3.new(0, 10, 1000))
+                        -- วาร์ปไปไกลเพื่อรีเซ็ตมอนสเตอร์ (เพิ่มระยะเป็น 1000 หน่วย)
+                        local resetPosition = hrp.CFrame + Vector3.new(0, 10, 1000)
+                        safeCFrameTeleport(hrp, resetPosition)
                         if standHRP then
-                            safeCFrameTeleport(standHRP, hrp.CFrame + Vector3.new(0, 10, 1002))
+                            safeCFrameTeleport(standHRP, resetPosition + Vector3.new(0, 0, -2))
                         end
                         task.wait(0.5)
                     end
@@ -199,11 +200,13 @@ local function autoFarmNPC(npcName, questNPC, customPos, conditionFunc)
             end
 
             if not foundTarget and (_G.AutoFarm or _G.AutoFarmSpecific) then
-                task.wait(1)
-                safeCFrameTeleport(hrp, hrp.CFrame + Vector3.new(0, 10, 1000))
+                -- วาร์ปไปไกลเมื่อไม่เจอมอนสเตอร์ (เพิ่มระยะเป็น 1000 หน่วย)
+                local resetPosition = hrp.CFrame + Vector3.new(0, 10, 1000)
+                safeCFrameTeleport(hrp, resetPosition)
                 if standHRP then
-                    safeCFrameTeleport(standHRP, hrp.CFrame + Vector3.new(0, 10, 1002))
+                    safeCFrameTeleport(standHRP, resetPosition + Vector3.new(0, 0, -2))
                 end
+                task.wait(1)
             end
             task.wait(0.6)
         end
@@ -658,63 +661,40 @@ ItemSection:NewToggle("Farm Items", "Collect nearby items", function(state)
     end)
 end)
 
--- Combat Enhancements Tab
-local CombatTab = Window:NewTab("Combat Enhancements")
-local CombatSection = CombatTab:NewSection("Enhance Your Combat")
+-- Performance Tab
+local PerformanceTab = Window:NewTab("Performance")
+local PerformanceSection = PerformanceTab:NewSection("Optimize FPS")
 
-CombatSection:NewToggle("Fast Attack", "Reduce attack and skill cooldowns", function(state)
-    _G.FastAttack = state
-    task.spawn(function()
-        while _G.FastAttack do
-            local char = waitForCharacter()
-            if char then
-                if not LocalPlayer.PlayerGui.CDgui.fortnite:FindFirstChild("Punch") then
-                    fireServerSafe(char.StandEvents.M1)
-                end
-                for _, event in pairs(char.StandEvents:GetChildren()) do
-                    if not table.find({"Block", "Quote", "Pose", "Summon", "Heal", "Jump", "TogglePilot"}, event.Name) then
-                        fireServerSafe(event, true)
-                    end
+-- Toggle Low Graphics Mode
+PerformanceSection:NewToggle("Low Graphics Mode", "Reduce graphics load to boost FPS", function(state)
+    _G.LowGraphics = state
+    if _G.LowGraphics then
+        -- ปิดเอฟเฟกต์และลดคุณภาพกราฟิก
+        pcall(function()
+            game:GetService("Lighting").GlobalShadows = false
+            game:GetService("Lighting").FogEnd = 100000
+            for _, v in pairs(Workspace:GetDescendants()) do
+                if v:IsA("Part") or v:IsA("MeshPart") then
+                    v.Material = Enum.Material.SmoothPlastic
+                    v.Reflectance = 0
+                    v.CastShadow = false
+                elseif v:IsA("Decal") then
+                    v.Transparency = 1
+                elseif v:IsA("ParticleEmitter") or v:IsA("Smoke") or v:IsA("Fire") then
+                    v.Enabled = false
                 end
             end
-            task.wait(0.05)
-        end
-    end)
+            Notify("EDU HUB", "Low Graphics Mode Enabled - FPS Boosted")
+        end)
+    else
+        -- คืนค่ากราฟิก (ถ้าต้องการ)
+        pcall(function()
+            game:GetService("Lighting").GlobalShadows = true
+            game:GetService("Lighting").FogEnd = 1000 -- ค่าเริ่มต้นทั่วไป
+            Notify("EDU HUB", "Low Graphics Mode Disabled")
+        end)
+    end
 end)
-
-local KillAuraRange = 10
-CombatSection:NewToggle("Kill Aura", "Auto-kill enemies in range", function(state)
-    _G.KillAura = state
-    task.spawn(function()
-        while _G.KillAura do
-            local char = waitForCharacter()
-            if not char or not char:FindFirstChild("HumanoidRootPart") then 
-                task.wait(0.5)
-                continue 
-            end
-            local hrp = char.HumanoidRootPart
-
-            for _, npc in pairs(Workspace.Living:GetChildren()) do
-                if npc ~= char and npc.ClassName == "Model" and npc:FindFirstChild("Humanoid") and npc.Humanoid.Health > 0 and npc:FindFirstChild("HumanoidRootPart") then
-                    local distance = (hrp.Position - npc.HumanoidRootPart.Position).Magnitude
-                    if distance <= KillAuraRange then
-                        if char:FindFirstChild("Aura") and not char.Aura.Value then
-                            fireServerSafe(char.StandEvents.Summon)
-                        end
-                        if not LocalPlayer.PlayerGui.CDgui.fortnite:FindFirstChild("Punch") then
-                            fireServerSafe(char.StandEvents.M1)
-                        end
-                    end
-                end
-            end
-            task.wait(0.1)
-        end
-    end)
-end)
-
-CombatSection:NewSlider("Kill Aura Range", "Set range for Kill Aura", 5, 50, function(range)
-    KillAuraRange = range
-end, {Default = 10, Step = 1})
 
 -- Settings Tab
 local KeybindTab = Window:NewTab("Settings")
