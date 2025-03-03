@@ -1,5 +1,9 @@
 -- Global Toggle
 getgenv().BeginFarm = false
+_G.ScriptLoaded = false -- ตัวแปรป้องกันการรันสคริปต์ซ้ำ
+
+if _G.ScriptLoaded then return end
+_G.ScriptLoaded = true
 
 local ScreenGui = Instance.new("ScreenGui")
 local Frame_1 = Instance.new("Frame")
@@ -9,19 +13,19 @@ local ImageButton_1 = Instance.new("ImageButton")
 ScreenGui.Parent = game.CoreGui
 
 Frame_1.Parent = ScreenGui
-Frame_1.BackgroundColor3 = Color3.fromRGB(255,255,255)
-Frame_1.Position = UDim2.new(0.0496077649, 0,0.134853914, 0)
-Frame_1.Size = UDim2.new(0, 33,0, 31)
+Frame_1.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+Frame_1.Position = UDim2.new(0.0496077649, 0, 0.134853914, 0)
+Frame_1.Size = UDim2.new(0, 33, 0, 31)
 
 ImageButton_1.Parent = Frame_1
 ImageButton_1.Active = true
-ImageButton_1.BackgroundColor3 = Color3.fromRGB(255,255,255)
-ImageButton_1.BorderColor3 = Color3.fromRGB(128,17,255)
-ImageButton_1.Position = UDim2.new(-0.00698809186, 0,-0.0136182783, 0)
-ImageButton_1.Size = UDim2.new(0, 33,0, 31)
+ImageButton_1.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+ImageButton_1.BorderColor3 = Color3.fromRGB(128, 17, 255)
+ImageButton_1.Position = UDim2.new(-0.00698809186, 0, -0.0136182783, 0)
+ImageButton_1.Size = UDim2.new(0, 33, 0, 31)
 ImageButton_1.Image = "http://www.roblox.com/asset/?id=12514663645"
 ImageButton_1.MouseButton1Down:Connect(function()
-    game:GetService("VirtualInputManager"):SendKeyEvent(true, "RightControl" , false , game)
+    game:GetService("VirtualInputManager"):SendKeyEvent(true, "RightControl", false, game)
 end)
 
 -- Services
@@ -35,6 +39,9 @@ local RunService = game:GetService("RunService")
 -- GUI Setup
 local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/EVILDARKSIDEUPV1/ui/main/README.md"))()
 local Window = Library.CreateLib("EDU HUB : Stand Upright : Rebooted", "BloodTheme")
+
+local STXModule = loadstring(game:HttpGet("https://raw.githubusercontent.com/BocusLuke/UI/main/STX/Module.Lua"))()
+local STXClient = loadstring(game:HttpGet("https://raw.githubusercontent.com/BocusLuke/UI/main/STX/Client.Lua"))()
 
 -- Default Values
 local Disc = 7 -- Default Y offset
@@ -66,6 +73,24 @@ local function waitForCharacter()
     return nil
 end
 
+local function waitForCharacterWithRetry(maxRetries, retryDelay)
+    local retries = 0
+    while retries < maxRetries do
+        local char = waitForCharacter()
+        if char and char:FindFirstChild("HumanoidRootPart") and char:FindFirstChild("Humanoid") and char.Humanoid.Health > 0 then
+            return char
+        end
+        retries += 1
+        task.wait(retryDelay)
+    end
+    warn("Failed to find character after " .. maxRetries .. " retries.")
+    return nil
+end
+
+local function Notify(title, desc)
+    STXClient:Notify({Title = title, Description = desc .. " ✅"}, {OutlineColor = Color3.fromRGB(128, 17, 255), Time = 3, Type = "default"})
+end
+
 -- Anti-AFK Function
 local function antiAFK()
     task.spawn(function()
@@ -86,14 +111,18 @@ end
 -- Auto Farm NPC Function (ใช้ Y และ Z เท่านั้น)
 local function autoFarmNPC(npcName, questNPC, customPos, conditionFunc)
     local charConnection = nil
-    local safePosition = Vector3.new(0, 50, 0) -- ตำแหน่งปลอดภัยเริ่มต้น (สูงจากพื้น 50 หน่วย เพื่อป้องกันตกแมพ)
+    local safePosition = Vector3.new(0, 50, 0) -- ตำแหน่งปลอดภัยเริ่มต้น
 
     task.spawn(function()
-        while _G.AutoFarm or _G.AutoFarmSpecific do
+        while (_G.AutoFarm or _G.AutoFarmSpecific) and not _G.AutoFarmBoss do -- ตรวจสอบว่าไม่ทำงานพร้อมกับ Boss Farm
             local char = waitForCharacter()
-            if not char or not char:FindFirstChild("HumanoidRootPart") then 
+            if not char or not char:FindFirstChild("HumanoidRootPart") then
+                if charConnection then
+                    charConnection:Disconnect()
+                    charConnection = nil
+                end
                 task.wait(0.5)
-                continue 
+                continue
             end
             local hrp = char.HumanoidRootPart
             local foundTarget = false
@@ -107,7 +136,6 @@ local function autoFarmNPC(npcName, questNPC, customPos, conditionFunc)
                     fireServerSafe(Workspace.Map.NPCs[questNPC].Done)
                     fireServerSafe(Workspace.Map.NPCs[questNPC].QuestDone)
 
-                    -- ใช้ BodyPosition กับค่า MaxForce และ Damping ที่ลดการสั่น
                     local bodyPosition = hrp:FindFirstChild("AntiGravity") or Instance.new("BodyPosition")
                     bodyPosition.Name = "AntiGravity"
                     bodyPosition.MaxForce = Vector3.new(1000, 1000, 1000)
@@ -116,12 +144,21 @@ local function autoFarmNPC(npcName, questNPC, customPos, conditionFunc)
                     bodyPosition.Position = hrp.Position
                     bodyPosition.Parent = hrp
 
-                    -- หา Stand ของผู้เล่น (ถ้ามี)
                     local stand = char:FindFirstChild("Stand")
                     local standHRP = stand and stand:FindFirstChild("HumanoidRootPart")
 
-                    -- อัปเดตตำแหน่งและทิศทาง
                     charConnection = RunService.Heartbeat:Connect(function()
+                        if not (_G.AutoFarm or _G.AutoFarmSpecific) or _G.AutoFarmBoss then
+                            if charConnection then
+                                charConnection:Disconnect()
+                                charConnection = nil
+                            end
+                            if hrp:FindFirstChild("AntiGravity") then
+                                hrp.AntiGravity:Destroy()
+                            end
+                            return
+                        end
+
                         local targetPosition, targetOrientation
                         if PositionChoice == "Top" then
                             targetPosition = npcHRP.Position + Vector3.new(0, 7 + Disc, Disc3)
@@ -134,7 +171,6 @@ local function autoFarmNPC(npcName, questNPC, customPos, conditionFunc)
                             targetOrientation = CFrame.lookAt(targetPosition, npcHRP.Position)
                         end
 
-                        -- อัปเดตตำแหน่งอย่างนิ่มนวล
                         local currentPosition = hrp.Position
                         local distance = (currentPosition - targetPosition).Magnitude
                         if distance > 0.5 then
@@ -143,14 +179,12 @@ local function autoFarmNPC(npcName, questNPC, customPos, conditionFunc)
                             bodyPosition.Position = currentPosition
                         end
 
-                        -- อัปเดตทิศทางอย่างนิ่มนวล
                         if (hrp.CFrame.lookVector - targetOrientation.lookVector).Magnitude > 0.1 then
                             local currentOrientation = hrp.CFrame
                             local newOrientation = currentOrientation:Lerp(targetOrientation, 0.2)
                             safeCFrameTeleport(hrp, newOrientation)
                         end
 
-                        -- ปรับตำแหน่ง Stand
                         if standHRP then
                             local standOffset = targetOrientation * CFrame.new(0, 0, -4)
                             safeCFrameTeleport(standHRP, standOffset)
@@ -171,6 +205,7 @@ local function autoFarmNPC(npcName, questNPC, customPos, conditionFunc)
 
                     if charConnection then
                         charConnection:Disconnect()
+                        charConnection = nil
                     end
 
                     if hrp:FindFirstChild("AntiGravity") then
@@ -178,7 +213,6 @@ local function autoFarmNPC(npcName, questNPC, customPos, conditionFunc)
                     end
 
                     if not (_G.AutoFarm or _G.AutoFarmSpecific) then
-                        -- วาร์ปไปยังตำแหน่งปลอดภัยเมื่อปิดฟาร์ม
                         local safeCFrame = CFrame.new(safePosition) * CFrame.Angles(0, math.rad(0), 0)
                         safeCFrameTeleport(hrp, safeCFrame)
                         if standHRP then
@@ -187,7 +221,6 @@ local function autoFarmNPC(npcName, questNPC, customPos, conditionFunc)
                     end
 
                     if _G.AutoFarm or _G.AutoFarmSpecific then
-                        -- วาร์ปไปไกลเพื่อรีเซ็ตมอนสเตอร์ (เพิ่มระยะเป็น 1000 หน่วย)
                         local resetPosition = hrp.CFrame + Vector3.new(0, 10, 400)
                         safeCFrameTeleport(hrp, resetPosition)
                         if standHRP then
@@ -200,7 +233,6 @@ local function autoFarmNPC(npcName, questNPC, customPos, conditionFunc)
             end
 
             if not foundTarget and (_G.AutoFarm or _G.AutoFarmSpecific) then
-                -- วาร์ปไปไกลเมื่อไม่เจอมอนสเตอร์ (เพิ่มระยะเป็น 1000 หน่วย)
                 local resetPosition = hrp.CFrame + Vector3.new(0, 10, 400)
                 safeCFrameTeleport(hrp, resetPosition)
                 if standHRP then
@@ -210,6 +242,168 @@ local function autoFarmNPC(npcName, questNPC, customPos, conditionFunc)
             end
             task.wait(0.6)
         end
+
+        if charConnection then
+            charConnection:Disconnect()
+            charConnection = nil
+        end
+        local char = waitForCharacter()
+        if char and char:FindFirstChild("HumanoidRootPart") and char.HumanoidRootPart:FindFirstChild("AntiGravity") then
+            char.HumanoidRootPart.AntiGravity:Destroy()
+        end
+    end)
+end
+
+-- Boss Farm Function
+local function autoFarmBoss(bossName)
+    local charConnection = nil
+    task.spawn(function()
+        while _G.AutoFarmBoss and not (_G.AutoFarm or _G.AutoFarmSpecific) do -- ตรวจสอบว่าไม่ทำงานพร้อมกับ NPC Farm
+            local char = waitForCharacterWithRetry(10, 0.5)
+            if not char or not char:FindFirstChild("HumanoidRootPart") then
+                if charConnection then
+                    charConnection:Disconnect()
+                    charConnection = nil
+                end
+                task.wait(0.5)
+                continue
+            end
+            local hrp = char.HumanoidRootPart
+            local stand = char:FindFirstChild("Stand")
+            local standHRP = stand and stand:FindFirstChild("HumanoidRootPart")
+            local boss = Workspace.Living:FindFirstChild(bossName)
+
+            if char:FindFirstChild("Humanoid") and char.Humanoid.Health <= 0 then
+                Notify("EDU HUB", "Player died! Waiting to respawn and restart farming...")
+                if charConnection then
+                    charConnection:Disconnect()
+                    charConnection = nil
+                end
+                if hrp:FindFirstChild("AntiGravity") then
+                    hrp.AntiGravity:Destroy()
+                end
+                char:WaitForChild("Humanoid").Died:Wait()
+                task.wait(1)
+                continue
+            end
+
+            if not boss or not boss:FindFirstChild("Humanoid") or boss.Humanoid.Health <= 0 then
+                Notify("EDU HUB", "Boss '" .. bossName .. "' not spawned yet! Waiting...")
+                if charConnection then
+                    charConnection:Disconnect()
+                    charConnection = nil
+                end
+                if hrp:FindFirstChild("AntiGravity") then
+                    hrp.AntiGravity:Destroy()
+                end
+                task.wait(5)
+                continue
+            end
+
+            local bossHRP = boss:FindFirstChild("HumanoidRootPart")
+            if not bossHRP then
+                local ragdollConstraints = boss:FindFirstChild("RagdollConstraints")
+                if ragdollConstraints and ragdollConstraints:IsA("BasePart") then
+                    bossHRP = ragdollConstraints
+                else
+                    continue
+                end
+            end
+
+            local bodyPosition = hrp:FindFirstChild("AntiGravity") or Instance.new("BodyPosition")
+            bodyPosition.Name = "AntiGravity"
+            bodyPosition.MaxForce = Vector3.new(10000, 10000, 10000)
+            bodyPosition.D = 500
+            bodyPosition.P = 2000
+            bodyPosition.Position = hrp.Position
+            bodyPosition.Parent = hrp
+
+            if not charConnection then
+                charConnection = RunService.Heartbeat:Connect(function()
+                    if not _G.AutoFarmBoss or not char or not hrp or not boss or not bossHRP or boss.Humanoid.Health <= 0 then
+                        if charConnection then
+                            charConnection:Disconnect()
+                            charConnection = nil
+                        end
+                        if hrp:FindFirstChild("AntiGravity") then
+                            hrp.AntiGravity:Destroy()
+                        end
+                        return
+                    end
+
+                    local targetPosition = bossHRP.Position + Vector3.new(0, Disc, Disc3)
+                    local targetOrientation = CFrame.lookAt(targetPosition, bossHRP.Position)
+
+                    local currentPosition = hrp.Position
+                    local distance = (currentPosition - targetPosition).Magnitude
+                    if distance > 1 then
+                        bodyPosition.Position = currentPosition:Lerp(targetPosition, 0.3)
+                    else
+                        bodyPosition.Position = targetPosition
+                    end
+
+                    if (hrp.CFrame.lookVector - targetOrientation.lookVector).Magnitude > 0.1 then
+                        local currentOrientation = hrp.CFrame
+                        local newOrientation = currentOrientation:Lerp(targetOrientation, 0.2)
+                        safeCFrameTeleport(hrp, newOrientation)
+                    end
+
+                    if standHRP then
+                        local standOffset = targetOrientation * CFrame.new(0, 0, -4)
+                        safeCFrameTeleport(standHRP, standOffset)
+                    end
+                end)
+            end
+
+            if char:FindFirstChild("Aura") and not char.Aura.Value then
+                fireServerSafe(char.StandEvents.Summon)
+            end
+            if not LocalPlayer.PlayerGui.CDgui.fortnite:FindFirstChild("Punch") then
+                fireServerSafe(char.StandEvents.M1)
+            end
+
+            task.wait(0.1)
+            if boss.Humanoid.Health <= 0 then
+                if charConnection then
+                    charConnection:Disconnect()
+                    charConnection = nil
+                end
+                if hrp:FindFirstChild("AntiGravity") then
+                    hrp.AntiGravity:Destroy()
+                end
+
+                Notify("EDU HUB", "Boss '" .. bossName .. "' defeated! Collecting drops...")
+                task.wait(2)
+                for _, v in pairs(Workspace.Vfx:GetDescendants()) do
+                    if v.Name == "Handle" and _G.AutoFarmBoss then
+                        safeCFrameTeleport(hrp, v.CFrame)
+                        task.wait(0.2)
+                    elseif v.Name == "ProximityPrompt" and _G.AutoFarmBoss then
+                        fireproximityprompt(v, 20)
+                        task.wait(0.2)
+                    end
+                end
+
+                if _G.AutoFarmBoss then
+                    local resetPosition = CFrame.new(hrp.Position + Vector3.new(0, 10, 400))
+                    safeCFrameTeleport(hrp, resetPosition)
+                    if standHRP then
+                        safeCFrameTeleport(standHRP, resetPosition * CFrame.new(0, 0, -2))
+                    end
+                    task.wait(1)
+                end
+            end
+            task.wait(0.3)
+        end
+
+        if charConnection then
+            charConnection:Disconnect()
+            charConnection = nil
+        end
+        local char = waitForCharacter()
+        if char and char:FindFirstChild("HumanoidRootPart") and char.HumanoidRootPart:FindFirstChild("AntiGravity") then
+            char.HumanoidRootPart.AntiGravity:Destroy()
+        end
     end)
 end
 
@@ -217,15 +411,13 @@ end
 local FarmTab = Window:NewTab("Farm")
 local FarmSection = FarmTab:NewSection("Farm Level to Auto Quests")
 
--- เพิ่ม Slider สำหรับ Set Y Value
 FarmSection:NewSlider("Set Y Value", "Adjust Y offset (-30 to 30)", -30, 30, function(value)
-    Disc = value -- อัปเดตค่า Disc ตามค่า Slider
-end, {Default = 2, Step = 1}) -- ค่าเริ่มต้น 2, เพิ่ม/ลดทีละ 1
+    Disc = value
+end, {Default = 2, Step = 1})
 
--- เพิ่ม Slider สำหรับ Set Z Value
 FarmSection:NewSlider("Set Z Value", "Adjust Z offset (-30 to 30)", -30, 30, function(value)
-    Disc3 = value -- อัปเดตค่า Disc3 ตามค่า Slider
-end, {Default = 7, Step = 1}) -- ค่าเริ่มต้น 7, เพิ่ม/ลดทีละ 1
+    Disc3 = value
+end, {Default = 7, Step = 1})
 
 local SkillSection = FarmTab:NewSection("Auto Use Skill")
 SkillSection:NewToggle("Use All Skills", "Auto-use all applicable skills", function(state)
@@ -261,8 +453,6 @@ SkillChoiceSection:NewToggle("Start Using Skill", "Toggle selected skill", funct
 end)
 
 local FarmLevelSection = FarmTab:NewSection("Farm Level All")
-
--- ใช้ MonSettings แทน farmSettings
 local MonSettings = {
     ["Bad Gi [Lvl. 1+]"] = {"Bad Gi", "Giorno"},
     ["Scary Monster [Lvl. 10+]"] = {"Scary Monster", "Scared Noob"},
@@ -296,6 +486,11 @@ local levelMap = {
 local isFarming = false
 FarmLevelSection:NewToggle("Auto Farm Level All", "Farm based on level", function(state)
     _G.AutoFarm = state
+    if _G.AutoFarmBoss then
+        Notify("EDU HUB", "Please disable Boss Farm before starting NPC Farm!")
+        _G.AutoFarm = false
+        return
+    end
     if isFarming then return end
     isFarming = true
     task.spawn(function()
@@ -308,7 +503,6 @@ FarmLevelSection:NewToggle("Auto Farm Level All", "Farm based on level", functio
             local level = LocalPlayer.Data.Level.Value or 1
             local matchedSetting = nil
 
-            -- หา Setting ที่ตรงกับระดับของผู้เล่นจาก levelMap
             for _, setting in ipairs(levelMap) do
                 if level >= setting.minLevel and level <= setting.maxLevel then
                     matchedSetting = MonSettings[setting.name]
@@ -317,12 +511,11 @@ FarmLevelSection:NewToggle("Auto Farm Level All", "Farm based on level", functio
             end
 
             if matchedSetting then
-                -- เรียก autoFarmNPC ด้วยพารามิเตอร์จาก MonSettings
                 autoFarmNPC(matchedSetting[1], matchedSetting[2], {Disc, Disc3}, function()
-                    return _G.AutoFarm -- ตรวจสอบว่ายังเปิดฟาร์มอยู่
+                    return _G.AutoFarm
                 end)
             else
-                task.wait(1) -- รอถ้าไม่พบ Setting ที่เหมาะสม
+                task.wait(1)
             end
             task.wait(0.6)
         end
@@ -356,6 +549,11 @@ SelectFarmSection:NewDropdown("Select Farm Level", "Choose an NPC to farm", MonL
 end)
 SelectFarmSection:NewToggle("Start Farm Level", "Start farming selected NPC", function(state)
     _G.AutoFarmSpecific = state
+    if _G.AutoFarmBoss then
+        Notify("EDU HUB", "Please disable Boss Farm before starting Specific NPC Farm!")
+        _G.AutoFarmSpecific = false
+        return
+    end
     if not Monkill or not MonSettings[Monkill] then
         _G.AutoFarmSpecific = false
         return
@@ -363,7 +561,9 @@ SelectFarmSection:NewToggle("Start Farm Level", "Start farming selected NPC", fu
     task.spawn(function()
         while _G.AutoFarmSpecific do
             local char = waitForCharacter()
-            autoFarmNPC(MonSettings[Monkill][1], MonSettings[Monkill][2], {Disc2, Disc, Disc3})
+            autoFarmNPC(MonSettings[Monkill][1], MonSettings[Monkill][2], {Disc, Disc3}, function()
+                return _G.AutoFarmSpecific
+            end)
             task.wait(0.6)
         end
     end)
@@ -371,11 +571,7 @@ end)
 
 local DungeonSection = FarmTab:NewSection("Auto Farm Dungeon")
 local DunLvl = {
-    "Dungeon [Lvl.15+]",
-    "Dungeon [Lvl.40+]",
-    "Dungeon [Lvl.80+]",
-    "Dungeon [Lvl.100+]",
-    "Dungeon [Lvl.200+]"
+    "Dungeon [Lvl.15+]", "Dungeon [Lvl.40+]", "Dungeon [Lvl.80+]", "Dungeon [Lvl.100+]", "Dungeon [Lvl.200+]"
 }
 local dungeonSettings = {
     ["Dungeon [Lvl.15+]"] = {"i_stabman [Lvl. 15+]", "Bad Gi Boss"},
@@ -386,7 +582,6 @@ local dungeonSettings = {
 }
 
 DungeonSection:NewDropdown("Choose Dungeon", "Select a dungeon", DunLvl, function(AuDun)
-    local STXClient = loadstring(game:HttpGet("https://raw.githubusercontent.com/BocusLuke/UI/main/STX/Client.Lua"))()
     STXClient:Notify({
         Title = "Press Start Farm Dungeon✅",
         Description = "Saving the Dungeon please wait......✅"
@@ -401,6 +596,11 @@ end)
 
 DungeonSection:NewToggle("Start Farm Dungeon", "Toggle dungeon farming", function(state)
     _G.AutoFarmDungeon = state
+    if _G.AutoFarmBoss or _G.AutoFarm or _G.AutoFarmSpecific then
+        Notify("EDU HUB", "Please disable other farming modes before starting Dungeon Farm!")
+        _G.AutoFarmDungeon = false
+        return
+    end
     if not ChDun or not dungeonSettings[ChDun] then
         _G.AutoFarmDungeon = false
         warn("No dungeon selected or invalid dungeon settings!")
@@ -419,7 +619,6 @@ DungeonSection:NewToggle("Start Farm Dungeon", "Toggle dungeon farming", functio
             local standHRP = stand and stand:WaitForChild("HumanoidRootPart")
             local foundBoss = false
 
-            -- รับเควสจาก NPC
             pcall(function()
                 for _, npc in pairs(Workspace.Map.NPCs:GetDescendants()) do
                     if npc.Name:find("i_stabman") and npc:FindFirstChild("Head") and npc.Head:FindFirstChild("Main") and npc.Head.Main:FindFirstChild("Text") then
@@ -432,13 +631,12 @@ DungeonSection:NewToggle("Start Farm Dungeon", "Toggle dungeon farming", functio
                                 end
                             end
                             fireServerSafe(npc:FindFirstChild("Done"))
-                            task.wait(0.5) -- รอให้เควสเริ่ม
+                            task.wait(0.5)
                         end
                     end
                 end
             end)
 
-            -- หาและโจมตีบอส
             pcall(function()
                 for _, boss in pairs(Workspace.Living:GetChildren()) do
                     if boss.Name == "Boss" and boss:FindFirstChild("Humanoid") and boss.Humanoid.Health > 0 and boss:FindFirstChild("Head") and boss.Head:FindFirstChild("Display") and boss.Head.Display:FindFirstChild("Frame") and boss.Head.Display.Frame:FindFirstChild("t") then
@@ -541,24 +739,21 @@ StorageSection:NewButton("Open Stand Storage", "Click to Open", function()
     fireServerSafe(Workspace.Map.NPCs.admpn.Done)
 end)
 
-local STXModule = loadstring(game:HttpGet("https://raw.githubusercontent.com/BocusLuke/UI/main/STX/Module.Lua"))()
-local STXClient = loadstring(game:HttpGet("https://raw.githubusercontent.com/BocusLuke/UI/main/STX/Client.Lua"))()
-
 local ItemSection = StandTab:NewSection("Use Item Farm Stand")
 local ArrowToUse = "Stand Arrow"
 ItemSection:NewButton("Use Stand Arrows", "Set to Stand Arrow", function()
     ArrowToUse = "Stand Arrow"
-    STXClient:Notify({Title="EDU HUB", Description="Farm set to Use Stand Arrow ✅"}, {OutlineColor=Color3.fromRGB(128,17,255), Time=3, Type="default"})
+    Notify("EDU HUB", "Farm set to Use Stand Arrow")
     task.wait(1.5)
 end)
 ItemSection:NewButton("Use Charged Arrows", "Set to Charged Arrow", function()
     ArrowToUse = "Charged Arrow"
-    STXClient:Notify({Title="EDU HUB", Description="Farm set to Use Charged Arrow ✅"}, {OutlineColor=Color3.fromRGB(128,17,255), Time=3, Type="default"})
+    Notify("EDU HUB", "Farm set to Use Charged Arrow")
     task.wait(1.5)
 end)
 ItemSection:NewButton("Use Kars Mask", "Set to Kars Mask", function()
     ArrowToUse = "Kars Mask"
-    STXClient:Notify({Title="EDU HUB", Description="Farm set to Use Kars Mask ✅"}, {OutlineColor=Color3.fromRGB(128,17,255), Time=3, Type="default"})
+    Notify("EDU HUB", "Farm set to Use Kars Mask")
     task.wait(1.5)
 end)
 
@@ -611,10 +806,6 @@ WebhookSection:NewTextBox("Set Webhook", "Enter Webhook URL", function(input) we
 
 local StartFarmSection = StandTab:NewSection("Start Farm")
 
-local function Notify(title, desc)
-    STXClient:Notify({Title = title, Description = desc .. " ✅"}, {OutlineColor = Color3.fromRGB(128, 17, 255), Time = 3, Type = "default"})
-end
-
 local function CheckInfo()
     local PlayerStand = LocalPlayer.PlayerGui.PlayerGUI.ingame.Stats.StandName:FindFirstChild("Name_") and LocalPlayer.PlayerGui.PlayerGUI.ingame.Stats.StandName.Name_.TextLabel.Text or "None"
     local PlayerAttri = LocalPlayer.Data.Attri.Value
@@ -639,10 +830,10 @@ local function CycleStand()
 
     if stand == "None" then
         local arrow = LocalPlayer.Backpack:FindFirstChild(ArrowToUse)
-        if not arrow then 
+        if not arrow then
             Notify("EDU HUB", "Error: No " .. ArrowToUse .. " in Backpack!")
-            BeginFarm = false
-            return 
+            getgenv().BeginFarm = false
+            return
         end
         char.Humanoid:EquipTool(arrow)
         task.wait(0.2)
@@ -650,7 +841,7 @@ local function CycleStand()
             char[ArrowToUse]:Activate()
             fireServerSafe(ReplicatedStorage.Events.UseItem)
             Notify("EDU HUB", "Using " .. ArrowToUse)
-            repeat task.wait(0.5) until LocalPlayer.Data.Stand.Value ~= "None" or not BeginFarm
+            repeat task.wait(0.5) until LocalPlayer.Data.Stand.Value ~= "None" or not getgenv().BeginFarm
         end
     elseif CheckInfo() then
         local stored = false
@@ -658,7 +849,7 @@ local function CycleStand()
             if LocalPlayer.Data["Slot" .. i .. "Stand"].Value == "None" then
                 Notify("EDU HUB", "Storing " .. stand .. " to Slot " .. i)
                 fireServerSafe(ReplicatedStorage.Events.SwitchStand, "Slot" .. i)
-                repeat task.wait(0.5) until LocalPlayer.Data.Stand.Value == "None" or not BeginFarm
+                repeat task.wait(0.5) until LocalPlayer.Data.Stand.Value == "None" or not getgenv().BeginFarm
                 Notify("EDU HUB", "Stored " .. stand .. " Successfully")
                 stored = true
                 break
@@ -666,14 +857,14 @@ local function CycleStand()
         end
         if not stored then
             Notify("EDU HUB", "Storage Full: No empty slots available!")
-            BeginFarm = false
+            getgenv().BeginFarm = false
         end
     else
         local rokakaka = LocalPlayer.Backpack:FindFirstChild("Rokakaka")
-        if not rokakaka then 
+        if not rokakaka then
             Notify("EDU HUB", "Error: No Rokakaka in Backpack!")
-            BeginFarm = false
-            return 
+            getgenv().BeginFarm = false
+            return
         end
         char.Humanoid:EquipTool(rokakaka)
         task.wait(0.2)
@@ -681,32 +872,32 @@ local function CycleStand()
             char.Rokakaka:Activate()
             fireServerSafe(ReplicatedStorage.Events.UseItem)
             Notify("EDU HUB", "Using Rokakaka to reset Stand")
-            repeat task.wait(0.5) until LocalPlayer.Data.Stand.Value == "None" or not BeginFarm
+            repeat task.wait(0.5) until LocalPlayer.Data.Stand.Value == "None" or not getgenv().BeginFarm
         end
     end
 end
 
 StartFarmSection:NewToggle("Start Stand Farm", "Toggle Stand Farm", function()
-    BeginFarm = not BeginFarm
-    if BeginFarm then
+    getgenv().BeginFarm = not getgenv().BeginFarm
+    if getgenv().BeginFarm then
         if not CheckStand and not CheckAttri then
             Notify("EDU HUB", "Please enable Stand Check or Attribute Check!")
-            BeginFarm = false
+            getgenv().BeginFarm = false
             return
         end
         if #Whitelisted == 0 and CheckStand then
             Notify("EDU HUB", "No Stands selected in Whitelist!")
-            BeginFarm = false
+            getgenv().BeginFarm = false
             return
         end
         if #WhitelistedAttributes == 0 and CheckAttri then
             Notify("EDU HUB", "No Attributes selected in Whitelist!")
-            BeginFarm = false
+            getgenv().BeginFarm = false
             return
         end
         Notify("EDU HUB", "Stand Farm Started")
         task.spawn(function()
-            while BeginFarm do
+            while getgenv().BeginFarm do
                 CycleStand()
                 task.wait(0.5)
             end
@@ -737,12 +928,9 @@ end)
 -- Performance Tab
 local PerformanceTab = Window:NewTab("Performance")
 local PerformanceSection = PerformanceTab:NewSection("Optimize FPS")
-
--- Toggle Low Graphics Mode
 PerformanceSection:NewToggle("Low Graphics Mode", "Reduce graphics load to boost FPS", function(state)
     _G.LowGraphics = state
     if _G.LowGraphics then
-        -- ปิดเอฟเฟกต์และลดคุณภาพกราฟิก
         pcall(function()
             game:GetService("Lighting").GlobalShadows = false
             game:GetService("Lighting").FogEnd = 100000
@@ -760,10 +948,9 @@ PerformanceSection:NewToggle("Low Graphics Mode", "Reduce graphics load to boost
             Notify("EDU HUB", "Low Graphics Mode Enabled - FPS Boosted")
         end)
     else
-        -- คืนค่ากราฟิก (ถ้าต้องการ)
         pcall(function()
             game:GetService("Lighting").GlobalShadows = true
-            game:GetService("Lighting").FogEnd = 1000 -- ค่าเริ่มต้นทั่วไป
+            game:GetService("Lighting").FogEnd = 1000
             Notify("EDU HUB", "Low Graphics Mode Disabled")
         end)
     end
@@ -784,5 +971,91 @@ AntiAFKSection:NewToggle("Enable Anti-AFK", "Prevent AFK kick by simulating move
         antiAFK()
     else
         Notify("EDU HUB", "Anti-AFK Disabled")
+    end
+end)
+
+-- Boss Farm Tab
+local BossTab = Window:NewTab("Boss Farm")
+local BossSection = BossTab:NewSection("Auto Farm Bosses")
+BossSection:NewSlider("Set Y Value", "Adjust Y offset (-30 to 30)", -30, 30, function(value)
+    Disc = value
+end, {Default = 7, Step = 1})
+
+BossSection:NewSlider("Set Z Value", "Adjust Z offset (-30 to 30)", -30, 30, function(value)
+    Disc3 = value
+end, {Default = 0, Step = 1})
+
+BossSection:NewButton("Fix Alternate Jotaro Part 4", "", function()
+    local char = waitForCharacter()
+    if char then
+        safeCFrameTeleport(char.HumanoidRootPart, CFrame.new(11927.1, -3.28935, -4488.59))
+        if char:FindFirstChild("Stand") then
+            safeCFrameTeleport(char.Stand.HumanoidRootPart, char.HumanoidRootPart.CFrame)
+        end
+    end
+end)
+
+local SkillSection = BossTab:NewSection("Auto Use Skills")
+_G.AutoSkillBossAll = false
+SkillSection:NewToggle("Auto Use All Skills", "Toggle auto-use all applicable skills while farming boss", function(state)
+    _G.AutoSkillBossAll = state
+    if _G.AutoSkillBossAll then
+        Notify("EDU HUB", "Auto Use All Skills for Boss Farming Started")
+        task.spawn(function()
+            while _G.AutoSkillBossAll and _G.AutoFarmBoss do
+                local char = waitForCharacterWithRetry(10, 0.5)
+                if char and char:FindFirstChild("StandEvents") then
+                    if char:FindFirstChild("Aura") and not char.Aura.Value then
+                        fireServerSafe(char.StandEvents.Summon)
+                    end
+                    for _, event in pairs(char.StandEvents:GetChildren()) do
+                        if not table.find({"Block", "Quote", "Pose", "Summon", "Heal", "Jump", "TogglePilot"}, event.Name) then
+                            fireServerSafe(event, true)
+                            task.wait(0.1)
+                        end
+                    end
+                end
+                task.wait(0.2)
+            end
+            Notify("EDU HUB", "Auto Use All Skills for Boss Farming Stopped")
+        end)
+    else
+        Notify("EDU HUB", "Auto Use All Skills for Boss Farming Disabled")
+    end
+end)
+
+local bossList = {
+    "Jotaro Over Heaven", "Alternate Jotaro Part 4", "JohnnyJoestar", "Giorno Giovanna Requiem"
+}
+local selectedBoss = nil
+BossSection:NewDropdown("Select Boss", "Choose a boss to farm", bossList, function(boss)
+    selectedBoss = boss
+end)
+
+BossSection:NewToggle("Start Boss Farm", "Toggle boss farming", function(state)
+    _G.AutoFarmBoss = state
+    if _G.AutoFarm or _G.AutoFarmSpecific or _G.AutoFarmDungeon then
+        Notify("EDU HUB", "Please disable other farming modes before starting Boss Farm!")
+        _G.AutoFarmBoss = false
+        return
+    end
+    if not selectedBoss then
+        Notify("EDU HUB", "Please select a boss first!")
+        _G.AutoFarmBoss = false
+        return
+    end
+    if _G.AutoFarmBoss then
+        Notify("EDU HUB", "Started farming '" .. selectedBoss .. "'")
+        autoFarmBoss(selectedBoss)
+    else
+        Notify("EDU HUB", "Stopped farming '" .. selectedBoss .. "'")
+        if charConnection then
+            charConnection:Disconnect()
+            charConnection = nil
+        end
+        local char = waitForCharacter()
+        if char and char:FindFirstChild("HumanoidRootPart") and char.HumanoidRootPart:FindFirstChild("AntiGravity") then
+            char.HumanoidRootPart.AntiGravity:Destroy()
+        end
     end
 end)
