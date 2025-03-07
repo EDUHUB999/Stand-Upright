@@ -1,5 +1,28 @@
+local ScreenGui = Instance.new("ScreenGui")
+local Frame_1 = Instance.new("Frame")
+local ImageButton_1 = Instance.new("ImageButton")
+
+-- Properties:
+ScreenGui.Parent = game.CoreGui
+
+Frame_1.Parent = ScreenGui
+Frame_1.BackgroundColor3 = Color3.fromRGB(255,255,255)
+Frame_1.Position = UDim2.new(0.0496077649, 0,0.134853914, 0)
+Frame_1.Size = UDim2.new(0, 33,0, 31)
+
+ImageButton_1.Parent = Frame_1
+ImageButton_1.Active = true
+ImageButton_1.BackgroundColor3 = Color3.fromRGB(255,255,255)
+ImageButton_1.BorderColor3 = Color3.fromRGB(128,17,255)
+ImageButton_1.Position = UDim2.new(-0.00698809186, 0,-0.0136182783, 0)
+ImageButton_1.Size = UDim2.new(0, 33,0, 31)
+ImageButton_1.Image = "http://www.roblox.com/asset/?id=12514663645"
+ImageButton_1.MouseButton1Down:Connect(function()
+    game:GetService("VirtualInputManager"):SendKeyEvent(true, "RightControl" , false , game)
+end)
+
 -- โหลด Kavo UI Library และตรวจสอบการโหลด
-local success, Library = pcall(loadstring(game:HttpGet("https://raw.githubusercontent.com/xHeptc/Kavo-UI-Library/main/source.lua")))
+local success, Library = pcall(loadstring(game:HttpGet("https://raw.githubusercontent.com/EVILDARKSIDEUPV1/ui/main/README.md")))
 if not success or not Library then
     warn("Failed to load Kavo UI Library! Please check your internet connection or the URL. Library value: " .. tostring(Library))
     return
