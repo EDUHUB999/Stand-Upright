@@ -27,8 +27,8 @@ if not success or not Library then
     warn("Failed to load Kavo UI Library! Please check your internet connection or the URL. Library value: " .. tostring(Library))
     return
 end
-print("Library loaded successfully: ", Library)
-local Window = Library.CreateLib("Farm & Quest Script by Grok", "DarkTheme")
+
+local Window = Library.CreateLib("EDU HUB : Stand Upright : Rebooted", "BloodTheme")
 if not Window then
     warn("Failed to create Window! Check Library compatibility.")
     return
@@ -40,7 +40,8 @@ local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local HttpService = game:GetService("HttpService")
-getgenv().BeginFarm = false -- เริ่มต้นเป็น false
+getgenv().BeginFarm = false
+local debugMode = false -- เพิ่มตัวแปรควบคุมการพิมพ์ใน F9
 
 -- ฟังก์ชัน Teleport
 local function Teleport(part, cframe)
@@ -48,10 +49,8 @@ local function Teleport(part, cframe)
         pcall(function()
             part.CFrame = cframe
             part.Velocity = Vector3.new(0, 0, 0)
-            print("Teleported " .. part.Name .. " to: " .. tostring(cframe))
+            if debugMode then print("Teleported " .. part.Name .. " to: " .. tostring(cframe)) end
         end)
-    else
-        print("Part not found or invalid: " .. tostring(part))
     end
 end
 
@@ -73,15 +72,19 @@ if not char then return end
 local hrp = char.HumanoidRootPart
 local originalPosition = hrp.CFrame
 
+Teleport(hrp, CFrame.new(-727.006897, 67.0773239, -939.000366, 0.422592998, -0, -0.906319618, 0, 1, -0, 0.906319618, 0, 0.422592998))
+task.wait(0.6)
+Teleport(hrp, CFrame.new(28080.0684, 49.5559769, -237.245163, -0.866007447, 0.00292324182, -0.500022888, 0, 0.999982893, 0.00584611483, 0.500031412, 0.00506277755, -0.865992606))
+task.wait(0.6)
 Teleport(hrp, CFrame.new(11927.1, -3.28935, -4488.59))
-task.wait(0.2)
+task.wait(0.6)
 Teleport(hrp, CFrame.new(-5234.27051, -449.936951, -3766.07373, 0.958408535, 1.30176289e-07, 0.285399795, 0.000306290051, 0.999999404, -0.0010290168, -0.285399646, 0.00107363367, 0.958407998))
-task.wait(0.2)
+task.wait(0.6)
 Teleport(hrp, originalPosition)
 
 -- ตัวแปรสำหรับ Farming
-local Disc = 7 -- Y offset
-local Disc3 = 0 -- Z offset
+local Disc = 7
+local Disc3 = 0
 local bodyPosition = nil
 local bodyGyro = nil
 local isUsingAllSkills = false
@@ -109,18 +112,12 @@ local function fireServerSafe(remote, arg)
     local success, err = pcall(function()
         if arg ~= nil then
             remote:FireServer(arg)
-            print("Fired: " .. remote.Name .. " with arg: " .. tostring(arg))
         else
             remote:FireServer()
-            print("Fired: " .. remote.Name)
         end
     end)
     if not success then
-        if Library and Library.CreateNotification then
-            Library:CreateNotification("Error firing " .. remote.Name .. ": " .. err, "Error", 5)
-        else
-            warn("Error firing " .. remote.Name .. ": " .. err)
-        end
+        Library:CreateNotification("Error firing " .. remote.Name .. ": " .. err, "Error", 5)
     end
     return success
 end
@@ -128,22 +125,16 @@ end
 -- ฟังก์ชันใช้สกิลทั้งหมดแบบคอมโบไว
 local function useAllSkills(char)
     if char and char:FindFirstChild("StandEvents") then
-        print("Combo Mode: Using all skills at max speed!")
         for _, event in pairs(char.StandEvents:GetChildren()) do
             if not table.find({"Block", "Quote", "Pose", "Summon", "Heal", "Jump", "TogglePilot"}, event.Name) then
-                print("Using skill: " .. event.Name)
                 fireServerSafe(event, true)
                 task.wait(0.05)
-            else
-                print("Skipped skill: " .. event.Name)
             end
         end
-    else
-        warn("StandEvents not found in character!")
     end
 end
 
--- ฟังก์ชันหามอนสเตอร์ที่ใกล้ที่สุด (ใช้สำหรับเควสต์และเลเวล ไม่ใช้ในบอส)
+-- ฟังก์ชันหามอนสเตอร์ที่ใกล้ที่สุด
 local function findNearestMonster(monsterName)
     local closestMonster = nil
     local shortestDistance = math.huge
@@ -279,7 +270,7 @@ end)
 
 FarmSection:NewDropdown("Select Quest/Monster", "Choose a quest to farm", questList, function(selected)
     selectedQuest = selected
-    print("Selected quest: " .. selectedQuest)
+    if debugMode then print("Selected quest: " .. selectedQuest) end
 end)
 
 FarmSection:NewSlider("Y Offset", "Adjust hover height", -30, 30, function(value)
@@ -292,7 +283,7 @@ end, 0)
 
 FarmSection:NewToggle("Use All Skills", "Toggle using all skills", function(state)
     isUsingAllSkills = state
-    print("Use All Skills: " .. tostring(isUsingAllSkills))
+    if debugMode then print("Use All Skills: " .. tostring(isUsingAllSkills)) end
 end)
 
 FarmSection:NewButton("Refresh Character", "Reset character state", function()
@@ -301,7 +292,7 @@ FarmSection:NewButton("Refresh Character", "Reset character state", function()
         if bodyPosition then bodyPosition:Destroy() bodyPosition = nil end
         if bodyGyro then bodyGyro:Destroy() bodyGyro = nil end
         char.Humanoid.Sit = false
-        print("Character refreshed!")
+        if debugMode then print("Character refreshed!") end
     end
 end)
 
@@ -448,10 +439,9 @@ local function startBossFarming()
             return
         end
         
-        -- ตรวจสอบบอสจาก Workspace.Living โดยตรง ไม่ใช้ findNearestMonster
         local boss = Workspace.Living:FindFirstChild(selectedBoss)
         if boss and boss:FindFirstChild("Humanoid") and boss.Humanoid.Health > 0 then
-            teleportToTarget(boss) -- วาร์ปไปเมื่อบอสเกิด
+            teleportToTarget(boss)
             local char = waitForCharacter()
             if char then
                 if char:FindFirstChild("Aura") and not char.Aura.Value then
@@ -473,14 +463,13 @@ local function startBossFarming()
                 end
             end
         else
-            -- ถ้าบอสยังไม่เกิด ให้ยืนนิ่งๆ โดยไม่วาร์ป
             if bodyPosition then bodyPosition:Destroy() bodyPosition = nil end
             if bodyGyro then bodyGyro:Destroy() bodyGyro = nil end
             local char = waitForCharacter()
             if char then
-                char.Humanoid.Sit = false -- รีเซ็ตสถานะนอน
+                char.Humanoid.Sit = false
             end
-            task.wait(1) -- รอจนกว่าบอสจะเกิด
+            task.wait(1)
         end
     end)
 end
@@ -527,23 +516,17 @@ local ItemSection = StandTab:NewSection("Use Item Farm Stand")
 local ArrowToUse = "Stand Arrow"
 ItemSection:NewButton("Use Stand Arrows", "Set to Stand Arrow", function()
     ArrowToUse = "Stand Arrow"
-    if Library and Library.CreateNotification then
-        Library:CreateNotification("Farm set to Use Stand Arrow", "Info", 3)
-    end
+    Library:CreateNotification("Farm set to Use Stand Arrow", "Info", 3)
     task.wait(1.5)
 end)
 ItemSection:NewButton("Use Charged Arrows", "Set to Charged Arrow", function()
     ArrowToUse = "Charged Arrow"
-    if Library and Library.CreateNotification then
-        Library:CreateNotification("Farm set to Use Charged Arrow", "Info", 3)
-    end
+    Library:CreateNotification("Farm set to Use Charged Arrow", "Info", 3)
     task.wait(1.5)
 end)
 ItemSection:NewButton("Use Kars Mask", "Set to Kars Mask", function()
     ArrowToUse = "Kars Mask"
-    if Library and Library.CreateNotification then
-        Library:CreateNotification("Farm set to Use Kars Mask", "Info", 3)
-    end
+    Library:CreateNotification("Farm set to Use Kars Mask", "Info", 3)
     task.wait(1.5)
 end)
 
@@ -600,7 +583,7 @@ local function CheckInfo()
     local success, playerGui = pcall(function() return LocalPlayer.PlayerGui.PlayerGUI.ingame.Stats.StandName end)
     local PlayerStand = success and playerGui:FindFirstChild("Name_") and playerGui.Name_.TextLabel.Text or "None"
     local PlayerAttri = LocalPlayer.Data.Attri.Value or "None"
-    print("Debug - PlayerStand:", PlayerStand, "PlayerAttri:", PlayerAttri) -- ดีบั๊ก
+    if debugMode then print("Debug - PlayerStand:", PlayerStand, "PlayerAttri:", PlayerAttri) end
     local standMatch = CheckStand and table.find(Whitelisted, PlayerStand)
     local attriMatch = CheckAttri and table.find(WhitelistedAttributes, PlayerAttri)
 
@@ -623,9 +606,7 @@ local function CycleStand()
     if stand == "None" then
         local arrow = LocalPlayer.Backpack:FindFirstChild(ArrowToUse)
         if not arrow then
-            if Library and Library.CreateNotification then
-                Library:CreateNotification("Error: No " .. ArrowToUse .. " in Backpack!", "Error", 5)
-            end
+            Library:CreateNotification("Error: No " .. ArrowToUse .. " in Backpack!", "Error", 5)
             return
         end
         char.Humanoid:EquipTool(arrow)
@@ -633,24 +614,18 @@ local function CycleStand()
         if char:FindFirstChild(ArrowToUse) then
             char[ArrowToUse]:Activate()
             fireServerSafe(ReplicatedStorage.Events.UseItem)
-            if Library and Library.CreateNotification then
-                Library:CreateNotification("Using " .. ArrowToUse, "Info", 3)
-            end
+            Library:CreateNotification("Using " .. ArrowToUse, "Info", 3)
             repeat task.wait(0.5) until LocalPlayer.Data.Stand.Value ~= "None" or not getgenv().BeginFarm
         end
     elseif CheckInfo() then
         local stored = false
         for i = 1, 2 do
             if LocalPlayer.Data["Slot" .. i .. "Stand"].Value == "None" then
-                if Library and Library.CreateNotification then
-                    Library:CreateNotification("Storing " .. stand .. " to Slot " .. i, "Info", 3)
-                end
+                Library:CreateNotification("Storing " .. stand .. " to Slot " .. i, "Info", 3)
                 fireServerSafe(ReplicatedStorage.Events.SwitchStand, "Slot" .. i)
                 repeat task.wait(0.5) until LocalPlayer.Data.Stand.Value == "None" or not getgenv().BeginFarm
                 if LocalPlayer.Data.Stand.Value == "None" then
-                    if Library and Library.CreateNotification then
-                        Library:CreateNotification("Stored " .. stand .. " Successfully", "Success", 3)
-                    end
+                    Library:CreateNotification("Stored " .. stand .. " Successfully", "Success", 3)
                     if UseWebhook and webhookurl ~= "" then
                         pcall(function()
                             HttpService:PostAsync(webhookurl, HttpService:JSONEncode({
@@ -664,17 +639,13 @@ local function CycleStand()
             end
         end
         if not stored then
-            if Library and Library.CreateNotification then
-                Library:CreateNotification("Storage Full: No empty slots available!", "Error", 5)
-            end
+            Library:CreateNotification("Storage Full: No empty slots available!", "Error", 5)
             return
         end
     else
         local rokakaka = LocalPlayer.Backpack:FindFirstChild("Rokakaka")
         if not rokakaka then
-            if Library and Library.CreateNotification then
-                Library:CreateNotification("Error: No Rokakaka in Backpack!", "Error", 5)
-            end
+            Library:CreateNotification("Error: No Rokakaka in Backpack!", "Error", 5)
             return
         end
         char.Humanoid:EquipTool(rokakaka)
@@ -682,9 +653,7 @@ local function CycleStand()
         if char:FindFirstChild("Rokakaka") then
             char.Rokakaka:Activate()
             fireServerSafe(ReplicatedStorage.Events.UseItem)
-            if Library and Library.CreateNotification then
-                Library:CreateNotification("Using Rokakaka to reset Stand", "Info", 3)
-            end
+            Library:CreateNotification("Using Rokakaka to reset Stand", "Info", 3)
             repeat task.wait(0.5) until LocalPlayer.Data.Stand.Value == "None" or not getgenv().BeginFarm
         end
     end
@@ -694,50 +663,38 @@ StartFarmSection:NewToggle("Start Stand Farm", "Toggle Stand Farm", function(sta
     getgenv().BeginFarm = state
     if getgenv().BeginFarm then
         if not CheckStand and not CheckAttri then
-            if Library and Library.CreateNotification then
-                Library:CreateNotification("Please enable Stand Check or Attribute Check!", "Error", 5)
-            end
+            Library:CreateNotification("Please enable Stand Check or Attribute Check!", "Error", 5)
             getgenv().BeginFarm = false
             return
         end
         if #Whitelisted == 0 and CheckStand then
-            if Library and Library.CreateNotification then
-                Library:CreateNotification("No Stands selected in Whitelist!", "Error", 5)
-            end
+            Library:CreateNotification("No Stands selected in Whitelist!", "Error", 5)
             getgenv().BeginFarm = false
             return
         end
         if #WhitelistedAttributes == 0 and CheckAttri then
-            if Library and Library.CreateNotification then
-                Library:CreateNotification("No Attributes selected in Whitelist!", "Error", 5)
-            end
+            Library:CreateNotification("No Attributes selected in Whitelist!", "Error", 5)
             getgenv().BeginFarm = false
             return
         end
-        if Library and Library.CreateNotification then
-            Library:CreateNotification("Stand Farm Started", "Info", 3)
-        end
+        Library:CreateNotification("Stand Farm Started", "Info", 3)
         task.spawn(function()
             while getgenv().BeginFarm do
                 CycleStand()
                 task.wait(0.5)
             end
-            if Library and Library.CreateNotification then
-                Library:CreateNotification("Stand Farm Stopped", "Info", 3)
-            end
+            Library:CreateNotification("Stand Farm Stopped", "Info", 3)
         end)
     else
-        if Library and Library.CreateNotification then
-            Library:CreateNotification("Stand Farm Stopped", "Info", 3)
-        end
+        Library:CreateNotification("Stand Farm Stopped", "Info", 3)
     end
 end)
 
--- Auto Buy Item Tab (ส่วนที่ใช้งานได้แล้ว)
+-- Auto Buy Item Tab
 local BuyTab = Window:NewTab("Auto Buy Item")
 local BuySection = BuyTab:NewSection("Stand near NPC and set amount before buying")
 
-local Amount = 1 -- ค่าเริ่มต้น
+local Amount = 1
 
 BuySection:NewButton("Teleport to Shop", "Warp to shop location", function()
     local char = waitForCharacter()
@@ -796,6 +753,11 @@ SettingsSection:NewToggle("Anti-AFK", "Prevent AFK kick", function(state)
     if isAntiAFK then antiAFK() end
 end)
 
+SettingsSection:NewToggle("Debug Mode", "Enable debug prints in F9", function(state)
+    debugMode = state
+    Library:CreateNotification("Debug Mode " .. (debugMode and "Enabled" or "Disabled"), "Info", 3)
+end)
+
 SettingsSection:NewKeybind("Toggle UI", "Show/hide UI", Enum.KeyCode.RightControl, function()
     Library:ToggleUI()
 end)
@@ -807,22 +769,20 @@ local DunLvl = {
     "Dungeon [Lvl.15+]", "Dungeon [Lvl.40+]", "Dungeon [Lvl.80+]", "Dungeon [Lvl.100+]", "Dungeon [Lvl.200+]"
 }
 local dungeonSettings = {
-    ["Dungeon [Lvl.15+]"] = {npcMonster = "i_stabman [Lvl. 15+]", bossName = "Bad Gi Boss"},
-    ["Dungeon [Lvl.40+]"] = {npcMonster = "i_stabman [Lvl. 40+]", bossName = "Dio [Dungeon]"},
-    ["Dungeon [Lvl.80+]"] = {npcMonster = "i_stabman [Lvl. 80+]", bossName = "Homeless Lord"},
-    ["Dungeon [Lvl.100+]"] = {npcMonster = "i_stabman [Lvl. 100+]", bossName = "Diavolo [Dungeon]"},
-    ["Dungeon [Lvl.200+]"] = {npcMonster = "i_stabman [Lvl. 200+]", bossName = "Jotaro P6 [Dungeon]"}
+    ["Dungeon [Lvl.15+]"] = {npcMonster = "i_stabman [Lvl. 15+]", bossName = "Bad Gi Boss", farmVar = "_G.AutoFarm1"},
+    ["Dungeon [Lvl.40+]"] = {npcMonster = "i_stabman [Lvl. 40+]", bossName = "Dio [Dungeon]", farmVar = "_G.AutoFarm3"},
+    ["Dungeon [Lvl.80+]"] = {npcMonster = "i_stabman [Lvl. 80+]", bossName = "Homeless Lord", farmVar = "_G.AutoFarm4"},
+    ["Dungeon [Lvl.100+]"] = {npcMonster = "i_stabman [Lvl. 100+]", bossName = "Diavolo [Dungeon]", farmVar = "_G.AutoFarm4"},
+    ["Dungeon [Lvl.200+]"] = {npcMonster = "i_stabman [Lvl. 200+]", bossName = "Jotaro P6 [Dungeon]", farmVar = "_G.AutoFarm5"}
 }
 
--- ตัวแปร
 local ChDun = "Dungeon [Lvl.15+]"
 local isDungeonFarming = false
 local dungeonConnection
 local lastTeleport = 0
-local currentTarget = nil -- ควบคุมเป้าหมาย (nil, "NPC", "Boss")
-local safePosition = nil -- เก็บตำแหน่งปลอดภัย (เช่น ตำแหน่ง NPC)
+local currentTarget = nil
+local safePosition = nil
 
--- ฟังก์ชันหา NPC (เพิ่มการ retry)
 local function findDungeonNPC(maxAttempts)
     maxAttempts = maxAttempts or 3
     for attempt = 1, maxAttempts do
@@ -830,24 +790,19 @@ local function findDungeonNPC(maxAttempts)
         for _, npc in ipairs(npcs) do
             if npc.Name:find("i_stabman") and npc:FindFirstChild("Head") and npc.Head:FindFirstChild("Main") and npc.Head.Main:FindFirstChild("Text") then
                 if npc.Head.Main.Text.Text == dungeonSettings[ChDun].npcMonster then
-                    print("Found NPC: " .. npc.Name .. " (Attempt " .. attempt .. ")")
-                    -- เก็บตำแหน่ง NPC เป็นตำแหน่งปลอดภัย
                     local npcHRP = npc:FindFirstChild("HumanoidRootPart")
                     if npcHRP then
                         safePosition = npcHRP.CFrame + Vector3.new(0, 3, 5)
-                        print("Safe position set to: " .. tostring(safePosition))
                     end
                     return npc
                 end
             end
         end
-        print("Dungeon NPC not found: " .. dungeonSettings[ChDun].npcMonster .. " (Attempt " .. attempt .. "/" .. maxAttempts .. ")")
-        task.wait(1) -- รอ 1 วินาทีก่อนลองใหม่
+        task.wait(1)
     end
     return nil
 end
 
--- ฟังก์ชันหาบอส (เพิ่มการ retry)
 local function findDungeonBoss(maxAttempts)
     maxAttempts = maxAttempts or 3
     for attempt = 1, maxAttempts do
@@ -857,43 +812,35 @@ local function findDungeonBoss(maxAttempts)
                 local frame = display and display:FindFirstChild("Frame")
                 local text = frame and frame:FindFirstChild("t")
                 if text and text.Text == dungeonSettings[ChDun].bossName then
-                    print("Found Boss: " .. dungeonSettings[ChDun].bossName .. " (Attempt " .. attempt .. ")")
                     return boss
                 end
             end
         end
-        print("Boss not found: " .. dungeonSettings[ChDun].bossName .. " (Attempt " .. attempt .. "/" .. maxAttempts .. ")")
-        task.wait(1) -- รอ 1 วินาทีก่อนลองใหม่
+        task.wait(1)
     end
     return nil
 end
 
--- ฟังก์ชันแจ้งเตือน (สำรองถ้า CreateNotification ล้มเหลว)
 local function notify(title, description, duration)
     if Library and Library.CreateNotification then
         Library:CreateNotification(title, description, duration)
-    else
-        warn("Notification failed: " .. title .. " - " .. description)
     end
 end
 
--- UI
 DungeonSection:NewDropdown("Choose Dungeon", "Select a dungeon to farm", DunLvl, function(AuDun)
     if not AuDun or AuDun == "" then
-        warn("Invalid dungeon selection: " .. tostring(AuDun))
         notify("Invalid Selection!", "Please choose a valid dungeon.", 3)
         return
     end
     notify("Selected Dungeon: " .. AuDun, "Saving selection...", 2)
     task.wait(0.2)
     ChDun = AuDun
-    currentTarget = nil -- รีเซ็ตเป้าหมายเมื่อเปลี่ยนด่าน
-    safePosition = nil -- รีเซ็ตตำแหน่งปลอดภัย
-    print("Dungeon selected: " .. ChDun .. ", Settings: " .. tostring(dungeonSettings[ChDun]))
+    currentTarget = nil
+    safePosition = nil
 end)
 
-DungeonSection:NewToggle("Auto Farm Dungeon", "Toggle dungeon farming", function(state)
-    isDungeonFarming = state
+DungeonSection:NewToggle("Auto Farm Dungeon", "Toggle dungeon farming", function(AuFDun)
+    isDungeonFarming = AuFDun
     if isFarming or isLevelFarming or isBossFarming then
         notify("Error", "Please disable other farming modes first!", 5)
         isDungeonFarming = false
@@ -902,9 +849,11 @@ DungeonSection:NewToggle("Auto Farm Dungeon", "Toggle dungeon farming", function
     if not ChDun or not dungeonSettings[ChDun] then
         notify("Error", "No valid dungeon selected!", 5)
         isDungeonFarming = false
-        warn("No dungeon selected or invalid settings!")
         return
     end
+
+    local farmVar = dungeonSettings[ChDun].farmVar:gsub("_G.", "")
+    _G[farmVar] = isDungeonFarming
 
     task.spawn(function()
         if dungeonConnection then
@@ -912,27 +861,18 @@ DungeonSection:NewToggle("Auto Farm Dungeon", "Toggle dungeon farming", function
         end
         dungeonConnection = RunService.RenderStepped:Connect(function()
             local now = tick()
-            if not isDungeonFarming then
+            if not isDungeonFarming or not _G[farmVar] then
                 dungeonConnection:Disconnect()
-                if bodyPosition then
-                    bodyPosition:Destroy()
-                    bodyPosition = nil
-                end
-                if bodyGyro then
-                    bodyGyro:Destroy()
-                    bodyGyro = nil
-                end
+                if bodyPosition then bodyPosition:Destroy() bodyPosition = nil end
+                if bodyGyro then bodyGyro:Destroy() bodyGyro = nil end
                 local char = waitForCharacter()
-                if char then
-                    char.Humanoid.Sit = false
-                end
-                print("Dungeon farming stopped")
+                if char then char.Humanoid.Sit = false end
+                _G[farmVar] = false
                 return
             end
 
             local char = waitForCharacter()
             if not char or not char:FindFirstChild("HumanoidRootPart") then
-                print("Waiting for character...")
                 task.wait(1)
                 return
             end
@@ -940,7 +880,6 @@ DungeonSection:NewToggle("Auto Farm Dungeon", "Toggle dungeon farming", function
             local stand = char:FindFirstChild("Stand")
             local standHRP = stand and stand:FindFirstChild("HumanoidRootPart")
 
-            -- ขั้นตอน 1: วาร์ปไปหา NPC และรับเควส (ถ้ายังไม่เสร็จ)
             if not currentTarget or currentTarget == "NPC" then
                 local npc = findDungeonNPC()
                 if npc and now - lastTeleport > 1 then
@@ -948,7 +887,6 @@ DungeonSection:NewToggle("Auto Farm Dungeon", "Toggle dungeon farming", function
                     if npcHRP and hrp then
                         local distance = (hrp.Position - npcHRP.Position).Magnitude
                         if distance > 5 then
-                            print("Teleporting to NPC: " .. npc.Name)
                             Teleport(hrp, npcHRP.CFrame + Vector3.new(0, 3, 5))
                             if standHRP then
                                 Teleport(standHRP, hrp.CFrame + Vector3.new(0, 0, -2))
@@ -959,15 +897,13 @@ DungeonSection:NewToggle("Auto Farm Dungeon", "Toggle dungeon farming", function
                         local done = npc:FindFirstChild("Done")
                         if done then
                             fireServerSafe(done)
-                            print("Interacted with NPC, switching to Boss target")
-                            currentTarget = "Boss" -- เปลี่ยนเป้าหมายไปหาบอสหลังรับเควส
-                            task.wait(1) -- หน่วงเวลาให้แน่ใจว่าเควสถูกยอมรับ
+                            currentTarget = "Boss"
+                            task.wait(1)
                         end
                     end
                 end
             end
 
-            -- ขั้นตอน 2: วาร์ปไปหาบอสและโจมตี (หลังจากรับเควส)
             if currentTarget == "Boss" then
                 local boss = findDungeonBoss()
                 if boss then
@@ -976,45 +912,40 @@ DungeonSection:NewToggle("Auto Farm Dungeon", "Toggle dungeon farming", function
                         repeat
                             task.wait(0.2)
                             if isDungeonFarming and hrp then
-                                print("Teleporting to Boss: " .. dungeonSettings[ChDun].bossName)
                                 Teleport(hrp, bossHRP.CFrame * CFrame.new(0, Disc, Disc3))
                                 if standHRP then
                                     Teleport(standHRP, bossHRP.CFrame * CFrame.new(0, Disc, Disc3 - 4))
                                 end
                                 lastTeleport = now
-                                notify("Fighting Boss", "Info", 2)
+                                if char:FindFirstChild("Aura") and not char.Aura.Value then
+                                    fireServerSafe(char.StandEvents.Summon)
+                                end
+                                if char:FindFirstChild("StandEvents") and not LocalPlayer.PlayerGui.CDgui.fortnite:FindFirstChild("Punch") then
+                                    fireServerSafe(char.StandEvents.M1)
+                                end
+                                if isUsingAllSkills then
+                                    useAllSkills(char)
+                                end
                             end
-                            if char:FindFirstChild("Aura") and not char.Aura.Value then
-                                fireServerSafe(char.StandEvents.Summon)
-                            end
-                            if char:FindFirstChild("StandEvents") and not LocalPlayer.PlayerGui.CDgui.fortnite:FindFirstChild("Punch") then
-                                fireServerSafe(char.StandEvents.M1)
-                            end
-                            if isUsingAllSkills then
-                                useAllSkills(char)
-                            end
-                        until (not boss or not boss.Humanoid or boss.Humanoid.Health <= 0) or not isDungeonFarming
+                        until (not boss or not boss.Humanoid or boss.Humanoid.Health <= 0) or not _G[farmVar]
 
                         if isDungeonFarming and hrp then
-                            print("Boss defeated, returning to safe position")
                             if safePosition then
                                 Teleport(hrp, safePosition)
                                 if standHRP then
                                     Teleport(standHRP, safePosition + Vector3.new(0, 0, -2))
                                 end
                             else
-                                print("No safe position set, staying in place")
+                                Teleport(hrp, hrp.CFrame + Vector3.new(0, 10, 0))
                             end
                             notify("Boss Defeated!", "Success", 3)
-                            currentTarget = nil -- รีเซ็ตเป้าหมายเพื่อเริ่มวงจรใหม่
-                            task.wait(2) -- รอสักพักก่อนเริ่มรอบใหม่
+                            currentTarget = nil
+                            task.wait(2)
                         end
                     end
                 else
-                    -- ถ้าบอสยังไม่เกิด ให้ยืนนิ่งรอ
-                    if hrp then
-                        print("Boss not found, waiting at safe position...")
-                        if safePosition and now - lastTeleport > 1 then
+                    if hrp and now - lastTeleport > 1 then
+                        if safePosition then
                             Teleport(hrp, safePosition)
                             if standHRP then
                                 Teleport(standHRP, safePosition + Vector3.new(0, 0, -2))
@@ -1022,11 +953,7 @@ DungeonSection:NewToggle("Auto Farm Dungeon", "Toggle dungeon farming", function
                             lastTeleport = now
                             notify("Boss not found, waiting", "Warning", 2)
                         end
-                        -- หยุดการเคลื่อนไหว
-                        if bodyPosition then
-                            bodyPosition.Position = hrp.Position
-                        end
-                        task.wait(2) -- รอ 2 วินาทีก่อนลองหาบอสใหม่
+                        task.wait(2)
                     end
                 end
             end
@@ -1036,34 +963,91 @@ DungeonSection:NewToggle("Auto Farm Dungeon", "Toggle dungeon farming", function
     end)
 end)
 
--- UI เพิ่มเติม
 DungeonSection:NewSlider("Y Offset", "Adjust hover height", -30, 30, function(value)
     Disc = value
-    print("Y Offset set to: " .. Disc)
+    if debugMode then print("Y Offset set to: " .. Disc) end
 end)
 
 DungeonSection:NewSlider("Z Offset", "Adjust forward/backward distance", -30, 30, function(value)
     Disc3 = value
-    print("Z Offset set to: " .. Disc3)
+    if debugMode then print("Z Offset set to: " .. Disc3) end
 end)
 
 DungeonSection:NewToggle("Use All Skills", "Toggle using all skills", function(state)
     isUsingAllSkills = state
-    print("Use All Skills: " .. tostring(isUsingAllSkills))
+    if debugMode then print("Use All Skills: " .. tostring(isUsingAllSkills)) end
 end)
 
 DungeonSection:NewButton("Refresh Character", "Reset character state", function()
     local char = waitForCharacter()
     if char then
-        if bodyPosition then
-            bodyPosition:Destroy()
-            bodyPosition = nil
-        end
-        if bodyGyro then
-            bodyGyro:Destroy()
-            bodyGyro = nil
-        end
+        if bodyPosition then bodyPosition:Destroy() bodyPosition = nil end
+        if bodyGyro then bodyGyro:Destroy() bodyGyro = nil end
         char.Humanoid.Sit = false
-        print("Character refreshed!")
+        if debugMode then print("Character refreshed!") end
     end
 end)
+
+-- [โค้ด Dungeon Farm ที่มีอยู่] --
+
+-- Tab: Item Farm
+local ItemTab = Window:NewTab("Item Farm")
+local ItemSection = ItemTab:NewSection("Auto Farm Items")
+local isItemFarming = false
+local itemConnection
+
+local function safeTeleport(part, cframe)
+    if part and part:IsA("BasePart") then
+        pcall(function()
+            part.CFrame = cframe
+            part.Velocity = Vector3.new(0, 0, 0)
+            if debugMode then print("Teleported " .. part.Name .. " to: " .. tostring(cframe)) end
+        end)
+    end
+end
+
+ItemSection:NewToggle("Farm Items", "Collect nearby items", function(state)
+    isItemFarming = state
+    _G.On = state
+
+    if isItemFarming and (isFarming or isLevelFarming or isBossFarming or isDungeonFarming) then
+        notify("Error", "Please disable other farming modes first!", 5)
+        isItemFarming = false
+        _G.On = false
+        return
+    end
+
+    task.spawn(function()
+        if itemConnection then
+            itemConnection:Disconnect()
+        end
+        itemConnection = RunService.Heartbeat:Connect(function()
+            if not isItemFarming or not _G.On then
+                itemConnection:Disconnect()
+                local char = waitForCharacter()
+                if char then char.Humanoid.Sit = false end
+                notify("Item Farm Stopped", "Info", 3)
+                return
+            end
+
+            local char = waitForCharacter()
+            if not char or not char:FindFirstChild("HumanoidRootPart") then
+                task.wait(1)
+                return
+            end
+            local hrp = char.HumanoidRootPart
+
+            for _, v in pairs(Workspace.Vfx:GetDescendants()) do
+                if v.Name == "Handle" and hrp then
+                    safeTeleport(hrp, v.CFrame)
+                elseif v.Name == "ProximityPrompt" then
+                    fireproximityprompt(v, 20)
+                end
+                task.wait(0.1)
+            end
+            task.wait(0.2)
+        end)
+    end)
+end)
+
+-- [โค้ด Settings และส่วนอื่นๆ ที่ตามมา] --
