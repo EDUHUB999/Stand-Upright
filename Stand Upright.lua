@@ -516,17 +516,23 @@ local ItemSection = StandTab:NewSection("Use Item Farm Stand")
 local ArrowToUse = "Stand Arrow"
 ItemSection:NewButton("Use Stand Arrows", "Set to Stand Arrow", function()
     ArrowToUse = "Stand Arrow"
-    Library:CreateNotification("Farm set to Use Stand Arrow", "Info", 3)
+    if Library and Library.CreateNotification then
+        Library:CreateNotification("Farm set to Use Stand Arrow", "Info", 3)
+    end
     task.wait(1.5)
 end)
 ItemSection:NewButton("Use Charged Arrows", "Set to Charged Arrow", function()
     ArrowToUse = "Charged Arrow"
-    Library:CreateNotification("Farm set to Use Charged Arrow", "Info", 3)
+    if Library and Library.CreateNotification then
+        Library:CreateNotification("Farm set to Use Charged Arrow", "Info", 3)
+    end
     task.wait(1.5)
 end)
 ItemSection:NewButton("Use Kars Mask", "Set to Kars Mask", function()
     ArrowToUse = "Kars Mask"
-    Library:CreateNotification("Farm set to Use Kars Mask", "Info", 3)
+    if Library and Library.CreateNotification then
+        Library:CreateNotification("Farm set to Use Kars Mask", "Info", 3)
+    end
     task.wait(1.5)
 end)
 
@@ -583,7 +589,7 @@ local function CheckInfo()
     local success, playerGui = pcall(function() return LocalPlayer.PlayerGui.PlayerGUI.ingame.Stats.StandName end)
     local PlayerStand = success and playerGui:FindFirstChild("Name_") and playerGui.Name_.TextLabel.Text or "None"
     local PlayerAttri = LocalPlayer.Data.Attri.Value or "None"
-    if debugMode then print("Debug - PlayerStand:", PlayerStand, "PlayerAttri:", PlayerAttri) end
+    print("Debug - PlayerStand:", PlayerStand, "PlayerAttri:", PlayerAttri) -- ดีบั๊ก
     local standMatch = CheckStand and table.find(Whitelisted, PlayerStand)
     local attriMatch = CheckAttri and table.find(WhitelistedAttributes, PlayerAttri)
 
@@ -606,7 +612,9 @@ local function CycleStand()
     if stand == "None" then
         local arrow = LocalPlayer.Backpack:FindFirstChild(ArrowToUse)
         if not arrow then
-            Library:CreateNotification("Error: No " .. ArrowToUse .. " in Backpack!", "Error", 5)
+            if Library and Library.CreateNotification then
+                Library:CreateNotification("Error: No " .. ArrowToUse .. " in Backpack!", "Error", 5)
+            end
             return
         end
         char.Humanoid:EquipTool(arrow)
@@ -614,18 +622,24 @@ local function CycleStand()
         if char:FindFirstChild(ArrowToUse) then
             char[ArrowToUse]:Activate()
             fireServerSafe(ReplicatedStorage.Events.UseItem)
-            Library:CreateNotification("Using " .. ArrowToUse, "Info", 3)
+            if Library and Library.CreateNotification then
+                Library:CreateNotification("Using " .. ArrowToUse, "Info", 3)
+            end
             repeat task.wait(0.5) until LocalPlayer.Data.Stand.Value ~= "None" or not getgenv().BeginFarm
         end
     elseif CheckInfo() then
         local stored = false
         for i = 1, 2 do
             if LocalPlayer.Data["Slot" .. i .. "Stand"].Value == "None" then
-                Library:CreateNotification("Storing " .. stand .. " to Slot " .. i, "Info", 3)
+                if Library and Library.CreateNotification then
+                    Library:CreateNotification("Storing " .. stand .. " to Slot " .. i, "Info", 3)
+                end
                 fireServerSafe(ReplicatedStorage.Events.SwitchStand, "Slot" .. i)
                 repeat task.wait(0.5) until LocalPlayer.Data.Stand.Value == "None" or not getgenv().BeginFarm
                 if LocalPlayer.Data.Stand.Value == "None" then
-                    Library:CreateNotification("Stored " .. stand .. " Successfully", "Success", 3)
+                    if Library and Library.CreateNotification then
+                        Library:CreateNotification("Stored " .. stand .. " Successfully", "Success", 3)
+                    end
                     if UseWebhook and webhookurl ~= "" then
                         pcall(function()
                             HttpService:PostAsync(webhookurl, HttpService:JSONEncode({
@@ -639,13 +653,17 @@ local function CycleStand()
             end
         end
         if not stored then
-            Library:CreateNotification("Storage Full: No empty slots available!", "Error", 5)
+            if Library and Library.CreateNotification then
+                Library:CreateNotification("Storage Full: No empty slots available!", "Error", 5)
+            end
             return
         end
     else
         local rokakaka = LocalPlayer.Backpack:FindFirstChild("Rokakaka")
         if not rokakaka then
-            Library:CreateNotification("Error: No Rokakaka in Backpack!", "Error", 5)
+            if Library and Library.CreateNotification then
+                Library:CreateNotification("Error: No Rokakaka in Backpack!", "Error", 5)
+            end
             return
         end
         char.Humanoid:EquipTool(rokakaka)
@@ -653,7 +671,9 @@ local function CycleStand()
         if char:FindFirstChild("Rokakaka") then
             char.Rokakaka:Activate()
             fireServerSafe(ReplicatedStorage.Events.UseItem)
-            Library:CreateNotification("Using Rokakaka to reset Stand", "Info", 3)
+            if Library and Library.CreateNotification then
+                Library:CreateNotification("Using Rokakaka to reset Stand", "Info", 3)
+            end
             repeat task.wait(0.5) until LocalPlayer.Data.Stand.Value == "None" or not getgenv().BeginFarm
         end
     end
@@ -663,30 +683,42 @@ StartFarmSection:NewToggle("Start Stand Farm", "Toggle Stand Farm", function(sta
     getgenv().BeginFarm = state
     if getgenv().BeginFarm then
         if not CheckStand and not CheckAttri then
-            Library:CreateNotification("Please enable Stand Check or Attribute Check!", "Error", 5)
+            if Library and Library.CreateNotification then
+                Library:CreateNotification("Please enable Stand Check or Attribute Check!", "Error", 5)
+            end
             getgenv().BeginFarm = false
             return
         end
         if #Whitelisted == 0 and CheckStand then
-            Library:CreateNotification("No Stands selected in Whitelist!", "Error", 5)
+            if Library and Library.CreateNotification then
+                Library:CreateNotification("No Stands selected in Whitelist!", "Error", 5)
+            end
             getgenv().BeginFarm = false
             return
         end
         if #WhitelistedAttributes == 0 and CheckAttri then
-            Library:CreateNotification("No Attributes selected in Whitelist!", "Error", 5)
+            if Library and Library.CreateNotification then
+                Library:CreateNotification("No Attributes selected in Whitelist!", "Error", 5)
+            end
             getgenv().BeginFarm = false
             return
         end
-        Library:CreateNotification("Stand Farm Started", "Info", 3)
+        if Library and Library.CreateNotification then
+            Library:CreateNotification("Stand Farm Started", "Info", 3)
+        end
         task.spawn(function()
             while getgenv().BeginFarm do
                 CycleStand()
                 task.wait(0.5)
             end
-            Library:CreateNotification("Stand Farm Stopped", "Info", 3)
+            if Library and Library.CreateNotification then
+                Library:CreateNotification("Stand Farm Stopped", "Info", 3)
+            end
         end)
     else
-        Library:CreateNotification("Stand Farm Stopped", "Info", 3)
+        if Library and Library.CreateNotification then
+            Library:CreateNotification("Stand Farm Stopped", "Info", 3)
+        end
     end
 end)
 
