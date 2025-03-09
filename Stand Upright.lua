@@ -754,7 +754,7 @@ for _, item in ipairs(buyItems) do
     BuySection:NewButton(item[1], "Buy " .. item[1], function()
         for i = 1, Amount do
             ReplicatedStorage.Events.BuyItem:FireServer(item[2], item[3])
-            task.wait(0.2)
+            -- ลบ task.wait(0.2) ออกเพื่อให้ซื้อทันทีโดยไม่หน่วง
         end
     end)
 end
@@ -1081,5 +1081,3 @@ ItemSection:NewToggle("Farm Items", "Collect nearby items", function(state)
         end)
     end)
 end)
-
--- [โค้ด Settings และส่วนอื่นๆ ที่ตามมา] --
