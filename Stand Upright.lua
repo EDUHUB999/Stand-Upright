@@ -878,7 +878,6 @@ local function findDungeonNPC(maxAttempts)
                 end
             end
         end
-        print("No matching NPC found, attempt " .. attempt .. " of " .. maxAttempts) -- ดีบั๊ก
         task.wait(1)
     end
     return nil
@@ -953,15 +952,22 @@ local function findDungeonBoss(maxAttempts)
         print("Boss not found, attempt " .. attempt .. " of " .. maxAttempts) -- ดีบั๊ก
         task.wait(1)
     end
-    print("Error: Boss not found after " .. maxAttempts .. " attempts!") -- ดีบั๊ก
+    notify("Error: Boss not found after " .. maxAttempts .. " attempts!", "Error", 5)
     return nil
+end
+
+local function notify(title, description, duration)
+    if Library and Library.CreateNotification then
+        Library:CreateNotification(title, description, duration)
+    end
 end
 
 DungeonSection:NewDropdown("Choose Dungeon", "Select a dungeon to farm", DunLvl, function(AuDun)
     if not AuDun or AuDun == "" then
+        notify("Invalid Selection!", "Please choose a valid dungeon.", 3)
         return
     end
-    print("Selected Dungeon: " .. AuDun) -- ดีบั๊ก
+    notify("Selected Dungeon: " .. AuDun, "Saving selection...", 2)
     task.wait(0.2)
     ChDun = AuDun
     currentTarget = nil
@@ -971,12 +977,12 @@ end)
 DungeonSection:NewToggle("Auto Farm Dungeon", "Toggle dungeon farming", function(AuFDun)
     isDungeonFarming = AuFDun
     if isFarming or isLevelFarming or isBossFarming then
-        print("Error: Please disable other farming modes first!") -- ดีบั๊ก
+        notify("Error", "Please disable other farming modes first!", 5)
         isDungeonFarming = false
         return
     end
     if not ChDun or not dungeonSettings[ChDun] then
-        print("Error: No valid dungeon selected!") -- ดีบั๊ก
+        notify("Error", "No valid dungeon selected!", 5)
         isDungeonFarming = false
         return
     end
@@ -1012,6 +1018,7 @@ DungeonSection:NewToggle("Auto Farm Dungeon", "Toggle dungeon farming", function
             if not currentTarget or currentTarget == "NPC" then
                 if isQuestActive() then
                     print("Quest still active, waiting to reset...") -- ดีบั๊ก
+                    notify("Quest still active, waiting to reset...", "Warning", 3)
                     task.wait(2)
                     return
                 end
@@ -1032,30 +1039,35 @@ DungeonSection:NewToggle("Auto Farm Dungeon", "Toggle dungeon farming", function
                                     Teleport(standHRP, hrp.CFrame + Vector3.new(0, 0, -2))
                                 end
                                 lastTeleport = now
+                                notify("Teleporting to NPC", "Info", 2)
                             end
                             local prompt = npcHRP:FindFirstChildOfClass("ProximityPrompt")
                             if prompt then
                                 fireproximityprompt(prompt, 20)
                                 print("Fired ProximityPrompt for NPC") -- ดีบั๊ก
+                                notify("Interacting with NPC via ProximityPrompt", "Info", 2)
                             end
                             local done = npc:FindFirstChild("Done")
                             if done then
                                 fireServerSafe(done)
                                 print("Fired Done event for NPC") -- ดีบั๊ก
-                                task.wait(5) -- รอ 5 วินาทีให้เซิร์ฟเวอร์โหลดบอส
+                                notify("Fired Done event", "Info", 2)
+                                task.wait(5) -- เพิ่มการหน่วงเวลาเป็น 5 วินาทีให้เซิร์ฟเวอร์โหลดบอส
                             end
                             currentTarget = "Boss"
-                            task.wait(2) -- รอเพิ่มเติมก่อนค้นหาบอส
+                            task.wait(2) -- เพิ่มการหน่วงเวลาเพิ่มเติมก่อนค้นหาบอส
                         end
                     end
                 else
                     print("No matching NPC found") -- ดีบั๊ก
+                    notify("Error: Could not find NPC!", "Error", 5)
                 end
             end
 
             if currentTarget == "Boss" then
                 if not game:GetService("RunService"):IsRunning() then
-                    print("Gameplay is paused, pausing dungeon farm, waiting for content to load") -- ดีบั๊ก
+                    print("Gameplay is paused, pausing dungeon farm") -- ดีบั๊ก
+                    notify("Gameplay Paused: Pausing dungeon farm, waiting for content to load", "Warning", 5)
                     task.wait(2)
                     return
                 end
@@ -1099,13 +1111,14 @@ DungeonSection:NewToggle("Auto Farm Dungeon", "Toggle dungeon farming", function
                             else
                                 Teleport(hrp, hrp.CFrame + Vector3.new(0, 10, 0))
                             end
-                            print("Boss Defeated!") -- ดีบั๊ก
+                            notify("Boss Defeated!", "Success", 3)
                             local npc = findDungeonNPC()
                             if npc then
                                 local questDone = npc:FindFirstChild("QuestDone")
                                 if questDone then
                                     fireServerSafe(questDone)
                                     print("Fired QuestDone event for NPC") -- ดีบั๊ก
+                                    notify("Quest marked as completed", "Info", 2)
                                 end
                             end
                             currentTarget = nil
@@ -1120,8 +1133,9 @@ DungeonSection:NewToggle("Auto Farm Dungeon", "Toggle dungeon farming", function
                                     Teleport(standHRP, safePosition + Vector3.new(0, 0, -2))
                                 end
                                 lastTeleport = now
+                                notify("Boss HRP not found, returning to NPC", "Warning", 2)
+                                currentTarget = "NPC"
                             end
-                            currentTarget = "NPC"
                         end
                     end
                 else
@@ -1132,8 +1146,9 @@ DungeonSection:NewToggle("Auto Farm Dungeon", "Toggle dungeon farming", function
                                 Teleport(standHRP, safePosition + Vector3.new(0, 0, -2))
                             end
                             lastTeleport = now
+                            notify("Boss not found, returning to NPC", "Warning", 2)
+                            currentTarget = "NPC"
                         end
-                        currentTarget = "NPC"
                     end
                 end
             end
