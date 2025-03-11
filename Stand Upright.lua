@@ -837,334 +837,233 @@ end)
 -- Tab: Dungeon Farm
 local DungeonTab = Window:NewTab("Dungeon Farm")
 local DungeonSection = DungeonTab:NewSection("Auto Farm Dungeon Settings")
-local RunService = game:GetService("RunService")
 
--- ข้อมูลดันเจี้ยนจากสคริปต์ต้นฉบับ
 local DunLvl = {
     "Dungeon [Lvl.15+]", "Dungeon [Lvl.40+]", "Dungeon [Lvl.80+]", "Dungeon [Lvl.100+]", "Dungeon [Lvl.200+]"
 }
 local dungeonSettings = {
-    ["Dungeon [Lvl.15+]"] = {npcMonster = "i_stabman [Lvl. 15+]", bossName = "Bad Gi Boss", farmVar = "_G.AutoFarm1"},
-    ["Dungeon [Lvl.40+]"] = {npcMonster = "i_stabman [Lvl. 40+]", bossName = "Dio [Dungeon]", farmVar = "_G.AutoFarm3"},
-    ["Dungeon [Lvl.80+]"] = {npcMonster = "i_stabman [Lvl. 80+]", bossName = "Homeless Lord", farmVar = "_G.AutoFarm4"},
-    ["Dungeon [Lvl.100+]"] = {npcMonster = "i_stabman [Lvl. 100+]", bossName = "Diavolo [Dungeon]", farmVar = "_G.AutoFarm4"},
-    ["Dungeon [Lvl.200+]"] = {npcMonster = "i_stabman [Lvl. 200+]", bossName = "Jotaro P6 [Dungeon]", farmVar = "_G.AutoFarm5"}
+    ["Dungeon [Lvl.15+]"] = {npcMonster = "i_stabman [Lvl. 15+]", bossName = "Bad Gi Boss", baseDistance = 7},
+    ["Dungeon [Lvl.40+]"] = {npcMonster = "i_stabman [Lvl. 40+]", bossName = "Dio [Dungeon]", baseDistance = 10},
+    ["Dungeon [Lvl.80+]"] = {npcMonster = "i_stabman [Lvl. 80+]", bossName = "Homeless Lord", baseDistance = 12},
+    ["Dungeon [Lvl.100+]"] = {npcMonster = "i_stabman [Lvl. 100+]", bossName = "Diavolo [Dungeon]", baseDistance = 10},
+    ["Dungeon [Lvl.200+]"] = {npcMonster = "i_stabman [Lvl. 200+]", bossName = "Jotaro P6 [Dungeon]", baseDistance = 15}
 }
 
--- ตัวแปรควบคุม
-local ChDun = "Dungeon [Lvl.15+]"
+local ChDun = "Dungeon [Lvl.15+]" -- ดันเจี้ยนเริ่มต้น
 local isDungeonFarming = false
 local dungeonConnection
 local lastTeleport = 0
 local currentTarget = nil
 local safePosition = nil
-local teleportPositionIndex = 1 -- ใช้สำหรับสลับตำแหน่ง (หน้า, ข้าง, หลัง)
+local currentDistance = 7 -- ระยะห่างปัจจุบัน
+local minDistance = 3 -- ระยะห่างขั้นต่ำ
+local maxDistance = 20 -- ระยะห่างสูงสุด
+local lastHealth = 0 -- สุขภาพบอสครั้งล่าสุด
+local lastDamageCheck = 0 -- เวลาที่เช็คดาเมจครั้งล่าสุด
 
--- ฟังก์ชันแจ้งเตือน
-local function notify(title, description, duration)
-    if Library and Library.CreateNotification then
-        Library:CreateNotification(title, description, duration)
-    else
-        warn("Notification: " .. title .. " - " .. description)
-    end
-end
-
--- ฟังก์ชันตรวจสอบเควส
+-- ฟังก์ชันตรวจสอบสถานะเควส
 local function isQuestActive()
     local questGui = LocalPlayer.PlayerGui:FindFirstChild("QuestGui")
     return questGui and questGui:FindFirstChild("Active") and questGui.Active.Value or false
 end
 
--- ฟังก์ชันค้นหา NPC
+-- ค้นหา NPC สำหรับรับเควส
 local function findDungeonNPC()
-    for _, npc in pairs(Workspace.Map.NPCs:GetChildren()) do
-        if npc.Name:find("i_stabman") then
-            local head = npc:FindFirstChild("Head")
-            local main = head and head:FindFirstChild("Main")
-            local text = main and main:FindFirstChild("Text")
-            if text and text.Text == dungeonSettings[ChDun].npcMonster then
+    for _, npc in ipairs(Workspace.Map.NPCs:GetChildren()) do
+        if npc.Name:find("i_stabman") and npc:FindFirstChild("Head") and npc.Head:FindFirstChild("Main") and npc.Head.Main:FindFirstChild("Text") then
+            if npc.Head.Main.Text.Text == dungeonSettings[ChDun].npcMonster then
                 local npcHRP = npc:FindFirstChild("HumanoidRootPart")
                 if npcHRP then
-                    safePosition = npcHRP.CFrame + Vector3.new(0, 0, 5)
-                    if debugMode then print("Found NPC: " .. npc.Name .. " at " .. tostring(safePosition)) end
+                    safePosition = npcHRP.CFrame + Vector3.new(0, 3, 5)
                     return npc
                 end
             end
         end
     end
-    if debugMode then print("NPC not found for " .. dungeonSettings[ChDun].npcMonster) end
     return nil
 end
 
--- ฟังก์ชันค้นหาบอส
+-- ค้นหาบอสในดันเจี้ยน
 local function findDungeonBoss()
     for _, boss in pairs(Workspace.Living:GetChildren()) do
-        if boss.Name == "Boss" then
-            local humanoid = boss:FindFirstChild("Humanoid")
-            if humanoid and humanoid.Health > 0 then
-                local head = boss:FindFirstChild("Head")
-                local display = head and head:FindFirstChild("Display")
-                local frame = display and display:FindFirstChild("Frame")
-                local text = frame and (frame:FindFirstChild("TextLabel") or frame:FindFirstChild("t"))
+        if boss.Name == "Boss" and boss:FindFirstChild("Humanoid") and boss.Humanoid.Health > 0 then
+            local head = boss:FindFirstChild("Head")
+            if head and head:FindFirstChild("Display") and head.Display:FindFirstChild("Frame") then
+                local text = head.Display.Frame:FindFirstChild("TextLabel") or head.Display.Frame:FindFirstChild("t")
                 if text and text.Text == dungeonSettings[ChDun].bossName then
-                    local bossHRP = boss:FindFirstChild("HumanoidRootPart")
-                    if bossHRP then
-                        if debugMode then print("Found Boss: " .. boss.Name .. " - " .. text.Text .. " at Y: " .. bossHRP.Position.Y) end
-                        return boss
-                    else
-                        if debugMode then print("Boss found but no HumanoidRootPart, waiting...") end
-                        task.wait(0.5)
-                    end
+                    return boss
                 end
             end
         end
     end
-    if debugMode then print("Boss not found for " .. dungeonSettings[ChDun].bossName) end
     return nil
 end
 
--- ฟังก์ชันโจมตีบอส
-local function attackBoss(boss)
+-- อัปเดตตำแหน่งตัวละครไปยังเป้าหมายพร้อมระยะห่างที่เหมาะสม
+local function updatePositionToTarget(target)
     local char = waitForCharacter()
-    if not char or not boss then return end
+    if not char or not target or not target:FindFirstChild("HumanoidRootPart") then return end
+    
+    local hrp = char.HumanoidRootPart
+    local targetHRP = target.HumanoidRootPart
+    local stand = char:FindFirstChild("Stand")
+    local standHRP = stand and stand:FindFirstChild("HumanoidRootPart")
 
-    if char:FindFirstChild("Aura") and not char.Aura.Value then
-        fireServerSafe(char.StandEvents.Summon)
-        task.wait(0.1)
-    end
+    local targetPos = targetHRP.Position
+    local direction = (targetPos - hrp.Position).Unit
+    local adjustedPos = targetPos - (direction * currentDistance) + Vector3.new(0, Disc, Disc3)
+    local targetCFrame = CFrame.lookAt(adjustedPos, targetPos)
 
-    if char:FindFirstChild("StandEvents") then
-        if not LocalPlayer.PlayerGui.CDgui.fortnite:FindFirstChild("Punch") then
-            for i = 1, 15 do
-                fireServerSafe(char.StandEvents.M1)
-                task.wait(0.05)
-            end
-        end
-        for _, event in pairs(char.StandEvents:GetChildren()) do
-            if not table.find({"Block", "Quote", "Pose", "Summon", "Heal", "Jump", "TogglePilot"}, event.Name) then
-                fireServerSafe(event, true)
-                task.wait(0.1)
-            end
-        end
-    end
+    createBodyControls(hrp)
+    bodyPosition.Position = adjustedPos
+    bodyGyro.CFrame = targetCFrame
 
-    pcall(function()
-        local bossHRP = boss:FindFirstChild("HumanoidRootPart")
-        if bossHRP then
-            local bv = Instance.new("BodyVelocity")
-            bv.Velocity = Vector3.new(math.random(-20, 20), math.random(10, 20), math.random(-20, 20))
-            bv.MaxForce = Vector3.new(5000, 5000, 5000)
-            bv.Parent = bossHRP
-            task.delay(0.2, function() bv:Destroy() end)
-        end
-    end)
-end
-
--- ฟังก์ชันวาร์ปผ่านพื้น/กำแพง
-local function teleportThroughWalls(charHRP, targetPos)
-    local humanoid = charHRP.Parent:FindFirstChild("Humanoid")
-    if humanoid then
-        -- บังคับวาร์ปโดยตั้งค่า CanCollide ชั่วคราว (ถ้าเกมอนุญาต)
-        local rootPart = charHRP
-        local originalCanCollide = rootPart.CanCollide
-        rootPart.CanCollide = false
-        Teleport(charHRP, CFrame.new(targetPos))
-        task.wait(0.1) -- รอให้วาร์ปเสร็จ
-        rootPart.CanCollide = originalCanCollide
+    if (hrp.Position - adjustedPos).Magnitude > 5 then
+        Teleport(hrp, targetCFrame)
+        if standHRP then Teleport(standHRP, targetCFrame) end
     end
 end
 
--- ฟังก์ชันหลักสำหรับฟาร์มดันเจี้ยน
-local function startDungeonFarming()
-    if dungeonConnection then dungeonConnection:Disconnect() end
-    dungeonConnection = RunService.Heartbeat:Connect(function()
-        local now = tick()
-        if not isDungeonFarming then
-            dungeonConnection:Disconnect()
-            if bodyPosition then bodyPosition:Destroy() bodyPosition = nil end
-            if bodyGyro then bodyGyro:Destroy() bodyGyro = nil end
-            local char = waitForCharacter()
-            if char then char.Humanoid.Sit = false end
-            currentTarget = nil
-            safePosition = nil
-            notify("Dungeon Farm Stopped", "Info", 3)
-            return
-        end
-
-        local char = waitForCharacter()
-        if not char or not char:FindFirstChild("HumanoidRootPart") then
-            task.wait(0.5)
-            return
-        end
-        local hrp = char.HumanoidRootPart
-        local stand = char:FindFirstChild("Stand")
-        local standHRP = stand and stand:FindFirstChild("HumanoidRootPart")
-
-        -- ขั้นตอนที่ 1: หา NPC และเริ่มเควส
-        if not currentTarget or currentTarget == "NPC" then
-            if isQuestActive() then
-                if debugMode then print("Quest still active, waiting...") end
-                task.wait(1)
-                return
+-- ฟังก์ชันตรวจสอบและปรับระยะห่าง
+local function adjustDistanceIfNoDamage(boss)
+    if not boss or not boss:FindFirstChild("Humanoid") then return end
+    local now = tick()
+    
+    if now - lastDamageCheck >= 2 then -- ตรวจสอบทุก 2 วินาที
+        local currentHealth = boss.Humanoid.Health
+        if currentHealth >= lastHealth and lastHealth > 0 then -- ไม่มีดาเมจเกิดขึ้น
+            if currentDistance > minDistance then
+                currentDistance = math.max(minDistance, currentDistance - 2) -- ลดระยะห่างลง
+                Library:CreateNotification("No damage dealt! Reducing distance to " .. currentDistance, "Info", 2)
             end
-
-            local npc = findDungeonNPC()
-            if npc then
-                if now - lastTeleport > 1 then
-                    local npcHRP = npc:FindFirstChild("HumanoidRootPart")
-                    if npcHRP then
-                        local distance = (hrp.Position - npcHRP.Position).Magnitude
-                        if distance > 5 then
-                            local targetCFrame = npcHRP.CFrame + Vector3.new(0, 0, 5)
-                            teleportThroughWalls(hrp, targetCFrame.Position)
-                            if standHRP then
-                                teleportThroughWalls(standHRP, (targetCFrame + Vector3.new(0, 0, -2)).Position)
-                            end
-                            lastTeleport = now
-                            if debugMode then print("Teleported to NPC") end
-                        end
-
-                        local prompt = npcHRP:FindFirstChildOfClass("ProximityPrompt")
-                        if prompt then
-                            fireproximityprompt(prompt, 20)
-                            if debugMode then print("Fired ProximityPrompt") end
-                        end
-                        local done = npc:FindFirstChild("Done")
-                        if done then
-                            fireServerSafe(done)
-                            if debugMode then print("Fired Done event") end
-                            notify("Starting Dungeon", "Info", 2)
-                            task.wait(3)
-                            currentTarget = "Boss"
-                        end
-                    end
-                end
-            else
-                notify("Could not find NPC!", "Warning", 2)
-                task.wait(0.5)
-            end
+        elseif currentHealth < lastHealth then -- มีดาเมจเกิดขึ้น
+            if debugMode then print("Damage dealt at distance: " .. currentDistance) end
         end
-
-        -- ขั้นตอนที่ 2: ฟาร์มบอส
-        if currentTarget == "Boss" then
-            local boss = findDungeonBoss()
-            if boss and boss:FindFirstChild("HumanoidRootPart") then
-                local bossHRP = boss:FindFirstChild("HumanoidRootPart")
-                if bossHRP and now - lastTeleport > 3 then
-                    local distance = (hrp.Position - bossHRP.Position).Magnitude
-                    if distance > 15 then
-                        -- กำหนดตำแหน่งรอบมอน (หน้า, ข้าง, หลัง)
-                        local positions = {
-                            Vector3.new(0, 0, 15), -- ด้านหน้า
-                            Vector3.new(15, 0, 0), -- ด้านขวา
-                            Vector3.new(-15, 0, 0), -- ด้านซ้าย
-                            Vector3.new(0, 0, -15) -- ด้านหลัง
-                        }
-                        local offset = positions[teleportPositionIndex]
-                        teleportPositionIndex = (teleportPositionIndex % 4) + 1
-
-                        -- วาร์ปในระดับ Y เดียวกับมอน + ลอย 2 หน่วย
-                        local targetPos = Vector3.new(bossHRP.Position.X + offset.X, bossHRP.Position.Y + 2, bossHRP.Position.Z + offset.Z)
-                        local lookAtCFrame = CFrame.new(targetPos, bossHRP.Position)
-                        teleportThroughWalls(hrp, lookAtCFrame.Position)
-                        if standHRP then
-                            teleportThroughWalls(standHRP, (lookAtCFrame * CFrame.new(0, 0, -2)).Position)
-                        end
-                        lastTeleport = now
-                        if debugMode then print("Teleported around Boss at position " .. tostring(offset) .. " with Y: " .. (bossHRP.Position.Y + 2)) end
-                    end
-                    attackBoss(boss)
-                end
-
-                local humanoid = boss:FindFirstChild("Humanoid")
-                if humanoid and humanoid.Health <= 0 then
-                    if safePosition then
-                        Teleport(hrp, safePosition)
-                        if standHRP then
-                            Teleport(standHRP, safePosition + Vector3.new(0, 0, -2))
-                        end
-                    else
-                        Teleport(hrp, hrp.CFrame + Vector3.new(0, 10, 0))
-                    end
-                    notify("Boss Defeated!", "Success", 2)
-                    local npc = findDungeonNPC()
-                    if npc then
-                        local questDone = npc:FindFirstChild("QuestDone")
-                        if questDone then
-                            fireServerSafe(questDone)
-                            if debugMode then print("Fired QuestDone event") end
-                        end
-                    end
-                    currentTarget = nil
-                    task.wait(2)
-                end
-            else
-                if now - lastTeleport > 5 then
-                    if safePosition then
-                        Teleport(hrp, safePosition)
-                        if standHRP then
-                            Teleport(standHRP, safePosition + Vector3.new(0, 0, -2))
-                        end
-                        lastTeleport = now
-                        notify("Boss not found, returning to NPC", "Warning", 2)
-                        currentTarget = "NPC"
-                    end
-                end
-            end
-        end
-
-        task.wait(0.1)
-    end)
+        lastHealth = currentHealth
+        lastDamageCheck = now
+    end
 end
 
--- UI Elements
+-- UI: เลือกดันเจี้ยน
 DungeonSection:NewDropdown("Choose Dungeon", "Select a dungeon to farm", DunLvl, function(AuDun)
-    if not AuDun or not dungeonSettings[AuDun] then
-        notify("Invalid Selection!", "Error", 3)
+    if not AuDun then
+        Library:CreateNotification("Invalid Selection!", "Please choose a valid dungeon.", 3)
         return
     end
     ChDun = AuDun
+    currentDistance = dungeonSettings[ChDun].baseDistance
     currentTarget = nil
     safePosition = nil
-    notify("Selected Dungeon: " .. AuDun, "Success", 2)
+    lastHealth = 0
+    lastDamageCheck = 0
+    Library:CreateNotification("Selected Dungeon: " .. AuDun, "Saving selection...", 2)
 end)
 
-DungeonSection:NewToggle("Auto Farm Dungeon", "Toggle dungeon farming", function(AuFDun)
-    isDungeonFarming = AuFDun
+-- UI: เปิด/ปิดการฟาร์มดันเจี้ยน
+DungeonSection:NewToggle("Auto Farm Dungeon", "Toggle dungeon farming", function(state)
+    isDungeonFarming = state
+    if isFarming or isLevelFarming or isBossFarming then
+        Library:CreateNotification("Error", "Please disable other farming modes first!", 5)
+        isDungeonFarming = false
+        return
+    end
+    if not ChDun or not dungeonSettings[ChDun] then
+        Library:CreateNotification("Error", "No valid dungeon selected!", 5)
+        isDungeonFarming = false
+        return
+    end
+
     if isDungeonFarming then
-        if isFarming or isLevelFarming or isBossFarming then
-            notify("Error", "Please disable other farming modes first!", 5)
-            isDungeonFarming = false
-            return
-        end
-        if not dungeonSettings[ChDun] then
-            notify("Error", "No valid dungeon selected!", 5)
-            isDungeonFarming = false
-            return
-        end
-        local farmVar = dungeonSettings[ChDun].farmVar:gsub("_G.", "")
-        _G[farmVar] = isDungeonFarming
-        notify("Dungeon Farm Started", "Success", 3)
-        task.spawn(startDungeonFarming)
-    else
-        local farmVar = dungeonSettings[ChDun].farmVar:gsub("_G.", "")
-        _G[farmVar] = false
-        if bodyPosition then bodyPosition:Destroy() bodyPosition = nil end
-        if bodyGyro then bodyGyro:Destroy() bodyGyro = nil end
-        local char = waitForCharacter()
-        if char then char.Humanoid.Sit = false end
+        currentDistance = dungeonSettings[ChDun].baseDistance -- รีเซ็ตระยะเริ่มต้น
+        Library:CreateNotification("Dungeon Farm Started", "Info", 3)
+        task.spawn(function()
+            dungeonConnection = RunService.Heartbeat:Connect(function()
+                if not isDungeonFarming then
+                    if dungeonConnection then dungeonConnection:Disconnect() end
+                    if bodyPosition then bodyPosition:Destroy() bodyPosition = nil end
+                    if bodyGyro then bodyGyro:Destroy() bodyGyro = nil end
+                    local char = waitForCharacter()
+                    if char then char.Humanoid.Sit = false end
+                    Library:CreateNotification("Dungeon Farm Stopped", "Info", 3)
+                    return
+                end
+
+                local char = waitForCharacter()
+                if not char or not char:FindFirstChild("HumanoidRootPart") then
+                    task.wait(1)
+                    return
+                end
+                local hrp = char.HumanoidRootPart
+                local now = tick()
+
+                -- ขั้นตอน 1: รับเควสจาก NPC
+                if not isQuestActive() and (not currentTarget or currentTarget == "NPC") then
+                    local npc = findDungeonNPC()
+                    if npc and now - lastTeleport > 1 then
+                        local npcHRP = npc:FindFirstChild("HumanoidRootPart")
+                        if npcHRP then
+                            Teleport(hrp, npcHRP.CFrame + Vector3.new(0, 2, 2))
+                            lastTeleport = now
+                            local prompt = npcHRP:FindFirstChildOfClass("ProximityPrompt")
+                            if prompt then fireproximityprompt(prompt, 20) end
+                            local done = npc:FindFirstChild("Done")
+                            if done then fireServerSafe(done) end
+                            Library:CreateNotification("Quest Accepted from NPC", "Info", 2)
+                            currentTarget = "Boss"
+                            task.wait(5) -- รอให้เกมวาร์ปไปห้องบอส
+                        end
+                    else
+                        Library:CreateNotification("Error: Could not find NPC!", "Error", 5)
+                    end
+                end
+
+                -- ขั้นตอน 2: ฟาร์มบอส
+                if currentTarget == "Boss" then
+                    local boss = findDungeonBoss()
+                    if boss then
+                        updatePositionToTarget(boss)
+                        adjustDistanceIfNoDamage(boss) -- ปรับระยะถ้าไม่มีดาเมจ
+                        
+                        if char:FindFirstChild("Aura") and not char.Aura.Value then
+                            fireServerSafe(char.StandEvents.Summon)
+                        end
+                        if char:FindFirstChild("StandEvents") and not LocalPlayer.PlayerGui.CDgui.fortnite:FindFirstChild("Punch") then
+                            fireServerSafe(char.StandEvents.M1)
+                        end
+                        if isUsingAllSkills then useAllSkills(char) end
+                    else
+                        -- บอสตายหรือหายไป ส่งเควสและกลับไปหา NPC
+                        if now - lastTeleport > 5 then
+                            if safePosition then
+                                Teleport(hrp, safePosition)
+                                lastTeleport = now
+                                local npc = findDungeonNPC()
+                                if npc then
+                                    local questDone = npc:FindFirstChild("QuestDone")
+                                    if questDone then fireServerSafe(questDone) end
+                                end
+                                Library:CreateNotification("Boss Defeated! Returning to NPC", "Success", 3)
+                                currentTarget = "NPC"
+                            end
+                        end
+                    end
+                end
+                task.wait(0.1)
+            end)
+        end)
     end
 end)
 
+-- UI: ปรับระยะห่างเพิ่มเติม
 DungeonSection:NewSlider("Y Offset", "Adjust hover height", -30, 30, function(value)
     Disc = value
     if debugMode then print("Y Offset set to: " .. Disc) end
-end)
+end, 7)
 
 DungeonSection:NewSlider("Z Offset", "Adjust forward/backward distance", -30, 30, function(value)
     Disc3 = value
     if debugMode then print("Z Offset set to: " .. Disc3) end
-end)
+end, 0)
 
 DungeonSection:NewToggle("Use All Skills", "Toggle using all skills", function(state)
     isUsingAllSkills = state
@@ -1177,8 +1076,6 @@ DungeonSection:NewButton("Refresh Character", "Reset character state", function(
         if bodyPosition then bodyPosition:Destroy() bodyPosition = nil end
         if bodyGyro then bodyGyro:Destroy() bodyGyro = nil end
         char.Humanoid.Sit = false
-        currentTarget = nil
-        safePosition = nil
         if debugMode then print("Character refreshed!") end
     end
 end)
