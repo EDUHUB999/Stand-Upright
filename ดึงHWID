@@ -1,0 +1,27 @@
+-- ฟังก์ชันสำหรับดึง HWID และคัดลอกไปคลิปบอร์ด
+local function getAndCopyHWID()
+    -- รับ HWID จากเครื่องผู้เล่น
+    local RbxAnalyticsService = game:GetService("RbxAnalyticsService")
+    local hwid = RbxAnalyticsService:GetClientId() -- ดึง HWID
+    
+    -- ตรวจสอบว่าได้ HWID มาหรือไม่
+    if hwid then
+        print("HWID ของคุณ: " .. hwid)
+        
+        -- คัดลอก HWID ไปยังคลิปบอร์ด
+        local success, err = pcall(function()
+            setclipboard(hwid) -- คัดลอก HWID ไปคลิปบอร์ด
+        end)
+        
+        if success then
+            print("คัดลอก HWID ไปยังคลิปบอร์ดเรียบร้อยแล้ว!")
+        else
+            warn("ไม่สามารถคัดลอกไปยังคลิปบอร์ดได้: " .. err)
+        end
+    else
+        warn("ไม่สามารถดึง HWID ได้!")
+    end
+end
+
+-- เรียกใช้ฟังก์ชัน
+getAndCopyHWID()
