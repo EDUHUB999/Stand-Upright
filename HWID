@@ -10,23 +10,31 @@ end)
 if not success then
     warn("ไม่สามารถดึง HWID ของผู้เล่นได้: " .. err)
     return
+elseif hwidplr == nil then
+    warn("HWID ของผู้เล่นเป็น nil ไม่สามารถดำเนินการต่อได้!")
+    return
 end
 
 -- ตรวจสอบ Key และกำหนด HWID
 if _G.Key == "EDUHUB_Beta" then
-    hwid = "รอใส่"
+    hwid = "รอใส่" -- เปลี่ยนเป็น HWID จริงเมื่อพร้อม
     keychecked = true
-elseif _G.Key == "EDUHUB" then -- Key ใหม่สำหรับ HWID ใหม่
+elseif _G.Key == "EDUHUB" then
     hwid = "53D920C0-924E-4B61-B243-AF47153FA2C2"
     keychecked = true
 else
-    warn("Key ไม่ถูกต้อง!")
+    warn("Key ไม่ถูกต้อง! Key ที่ป้อน: " .. (tostring(_G.Key) or "nil"))
 end
 
 -- ถ้า Key ผ่านการตรวจสอบ
 if keychecked then
+    if hwid == "รอใส่" then
+        warn("กรุณาเปลี่ยน 'รอใส่' เป็น HWID จริงก่อนรัน!")
+        return
+    end
+
     if hwidplr == hwid then
-        print("HWID ตรงกัน! กำลังรันสคริปต์...")
+        print("HWID ตรงกัน! กำลังรันสคริปต์... HWID: " .. hwidplr)
         
         -- รอให้เกมโหลดเสร็จ
         if not game:IsLoaded() then
@@ -34,18 +42,30 @@ if keychecked then
             game.Loaded:Wait()
         end
         
-        -- รันสคริปต์พร้อมจัดการข้อผิดพลาด
-        local scriptSuccess, scriptErr = pcall(function()
-            loadstring(game:HttpGet("https://raw.githubusercontent.com/EVILDARKSIDE111/Virus/refs/heads/main/a"))()
+        -- ตรวจสอบการเชื่อมต่อและดึงสคริปต์
+        local scriptContent = nil
+        local httpSuccess, httpErr = pcall(function()
+            scriptContent = game:HttpGet("https://raw.githubusercontent.com/EVILDARKSIDE111/Virus/refs/heads/main/a")
         end)
         
-        if scriptSuccess then
-            print("สคริปต์รันสำเร็จ!")
+        if httpSuccess and scriptContent then
+            -- รันสคริปต์พร้อมจัดการข้อผิดพลาด
+            local scriptFunc, loadErr = loadstring(scriptContent)
+            if scriptFunc then
+                local scriptSuccess, scriptErr = pcall(scriptFunc)
+                if scriptSuccess then
+                    print("สคริปต์รันสำเร็จ!")
+                else
+                    warn("เกิดข้อผิดพลาดในการรันสคริปต์: " .. scriptErr)
+                end
+            else
+                warn("ไม่สามารถโหลดสคริปต์ได้: " .. loadErr)
+            end
         else
-            warn("เกิดข้อผิดพลาดในการรันสคริปต์: " .. scriptErr)
+            warn("ไม่สามารถดึงสคริปต์ได้: " .. (httpErr or "ไม่มีข้อมูล"))
         end
     else
-        warn("HWID ไม่ตรงกับที่กำหนด!")
+        warn("HWID ไม่ตรงกับที่กำหนด! HWID ผู้เล่น: " .. (hwidplr or "nil") .. " HWID กำหนด: " .. (hwid or "nil"))
     end
 else
     warn("Key ไม่ผ่านการตรวจสอบ ไม่รันสคริปต์!")
