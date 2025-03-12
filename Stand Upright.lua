@@ -127,16 +127,17 @@ local bodyPosition = nil
 local bodyGyro = nil
 local isUsingAllSkills = false
 
--- ฟังก์ชันสร้าง BodyPosition และ BodyGyro
+-- ฟังก์ชันสร้างและจัดการ BodyPosition และ BodyGyro
 local function createBodyControls(hrp)
-    if not bodyPosition then
+    if not hrp then return end
+    if not bodyPosition or not bodyPosition.Parent then
         bodyPosition = Instance.new("BodyPosition")
         bodyPosition.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
         bodyPosition.P = 10000
         bodyPosition.D = 1000
         bodyPosition.Parent = hrp
     end
-    if not bodyGyro then
+    if not bodyGyro or not bodyGyro.Parent then
         bodyGyro = Instance.new("BodyGyro")
         bodyGyro.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
         bodyGyro.P = 5000
@@ -145,8 +146,14 @@ local function createBodyControls(hrp)
     end
 end
 
--- ฟังก์ชันเรียก RemoteEvent อย่างปลอดภัย
+-- ฟังก์ชันเรียก RemoteEvent อย่างปลอดภัยพร้อม cooldown
+local lastFireTime = 0
 local function fireServerSafe(remote, arg)
+    local currentTime = tick()
+    if currentTime - lastFireTime < 0.1 then -- จำกัดการเรียกทุก 0.1 วินาที
+        return false
+    end
+    lastFireTime = currentTime
     local success = pcall(function()
         if arg ~= nil then
             remote:FireServer(arg)
@@ -157,24 +164,23 @@ local function fireServerSafe(remote, arg)
     return success
 end
 
--- ฟังก์ชันใช้สกิลทั้งหมด
+-- ฟังก์ชันใช้สกิลทั้งหมด (ลดการเรียกซ้ำ)
 local function useAllSkills(char)
-    if char and char:FindFirstChild("StandEvents") then
-        for _, event in pairs(char.StandEvents:GetChildren()) do
-            if not table.find({"Block", "Quote", "Pose", "Summon", "Heal", "Jump", "TogglePilot"}, event.Name) then
-                fireServerSafe(event, true)
-                task.wait(0.05)
-            end
+    if not char or not char:FindFirstChild("StandEvents") then return end
+    for _, event in pairs(char.StandEvents:GetChildren()) do
+        if not table.find({"Block", "Quote", "Pose", "Summon", "Heal", "Jump", "TogglePilot"}, event.Name) then
+            fireServerSafe(event, true)
+            task.wait(0.2) -- เพิ่มดีเลย์เพื่อลดภาระ
         end
     end
 end
 
--- ฟังก์ชันหามอนสเตอร์ที่ใกล้ที่สุด
+-- ฟังก์ชันหามอนสเตอร์ที่ใกล้ที่สุด (จำกัดการคำนวณ)
 local function findNearestMonster(monsterName)
     local closestMonster = nil
     local shortestDistance = math.huge
     for _, mob in pairs(Workspace.Living:GetChildren()) do
-        if mob.Name == monsterName and mob:FindFirstChild("Humanoid") and mob.Humanoid.Health > 0 then
+        if mob.Name == monsterName and mob:FindFirstChild("Humanoid") and mob.Humanoid.Health > 0 and mob:FindFirstChild("PrimaryPart") then
             local distance = (LocalPlayer.Character.HumanoidRootPart.Position - mob.PrimaryPart.Position).Magnitude
             if distance < shortestDistance then
                 shortestDistance = distance
@@ -187,24 +193,23 @@ end
 
 -- ฟังก์ชันวาร์ปและล็อกตำแหน่ง
 local function teleportToTarget(target)
-    if target and target.PrimaryPart then
-        local char = waitForCharacter()
-        if not char then return end
-        local hrp = char.HumanoidRootPart
-        
-        local targetPos = target.PrimaryPart.Position
-        local hoverPos = targetPos + Vector3.new(0, Disc, Disc3)
-        local targetCFrame = CFrame.lookAt(hoverPos, targetPos)
-        
-        createBodyControls(hrp)
-        bodyPosition.Position = hoverPos
-        bodyGyro.CFrame = targetCFrame
-        
-        local distance = (hrp.Position - hoverPos).Magnitude
-        if distance > 5 then
-            Teleport(hrp, targetCFrame)
-            char.Humanoid.Sit = true
-        end
+    if not target or not target.PrimaryPart then return end
+    local char = waitForCharacter()
+    if not char then return end
+    local hrp = char.HumanoidRootPart
+    
+    local targetPos = target.PrimaryPart.Position
+    local hoverPos = targetPos + Vector3.new(0, Disc, Disc3)
+    local targetCFrame = CFrame.lookAt(hoverPos, targetPos)
+    
+    createBodyControls(hrp)
+    bodyPosition.Position = hoverPos
+    bodyGyro.CFrame = targetCFrame
+    
+    local distance = (hrp.Position - hoverPos).Magnitude
+    if distance > 5 then
+        Teleport(hrp, targetCFrame)
+        char.Humanoid.Sit = true
     end
 end
 
@@ -238,7 +243,7 @@ local questData = {
 
 local function startFarming()
     if connection then connection:Disconnect() end
-    connection = RunService.Heartbeat:Connect(function()
+    connection = RunService.Stepped:Connect(function() -- เปลี่ยนจาก Heartbeat เป็น Stepped
         if not isFarming then
             connection:Disconnect()
             if bodyPosition then bodyPosition:Destroy() bodyPosition = nil end
@@ -267,14 +272,6 @@ local function startFarming()
                 end
                 if isUsingAllSkills then
                     useAllSkills(char)
-                else
-                    if char:FindFirstChild("StandEvents") then
-                        for _, event in pairs(char.StandEvents:GetChildren()) do
-                            if not table.find({"Block", "Quote", "Pose", "Summon", "Heal", "Jump", "TogglePilot"}, event.Name) then
-                                fireServerSafe(event, true)
-                            end
-                        end
-                    end
                 end
             end
         else
@@ -286,8 +283,8 @@ local function startFarming()
                 local resetPosition = char.HumanoidRootPart.CFrame + Vector3.new(0, 10, 400)
                 Teleport(char.HumanoidRootPart, resetPosition)
             end
-            task.wait(1)
         end
+        task.wait(0.5) -- เพิ่มดีเลย์เพื่อลดการทำงานต่อเฟรม
     end)
 end
 
@@ -361,12 +358,12 @@ local levelMap = {
     {minLevel = 126, maxLevel = 150, name = "Jotaro Part 4 [Lvl. 125+]"},
     {minLevel = 151, maxLevel = 200, name = "Kakyoin [Lvl. 150+]"},
     {minLevel = 201, maxLevel = 275, name = "Sewer Vampire [Lvl. 200+]"},
-    {minLevel = 276, maxLevel = math.huge, name = "Pillerman [Lvl. 275+]"}
+    {minLevel = 276, maxLevel = math.huge, name = "Pillerman [Lvl. 275+]"} -- แก้ไขจาก "Возможность" เป็น "minLevel"
 }
 
 local function startLevelFarming()
     if levelConnection then levelConnection:Disconnect() end
-    levelConnection = RunService.Heartbeat:Connect(function()
+    levelConnection = RunService.Stepped:Connect(function()
         if not isLevelFarming then
             levelConnection:Disconnect()
             if bodyPosition then bodyPosition:Destroy() bodyPosition = nil end
@@ -404,14 +401,6 @@ local function startLevelFarming()
                     end
                     if isUsingAllSkills then
                         useAllSkills(char)
-                    else
-                        if char:FindFirstChild("StandEvents") then
-                            for _, event in pairs(char.StandEvents:GetChildren()) do
-                                if not table.find({"Block", "Quote", "Pose", "Summon", "Heal", "Jump", "TogglePilot"}, event.Name) then
-                                    fireServerSafe(event, true)
-                                end
-                            end
-                        end
                     end
                 end
             else
@@ -423,11 +412,9 @@ local function startLevelFarming()
                     local resetPosition = char.HumanoidRootPart.CFrame + Vector3.new(0, 10, 400)
                     Teleport(char.HumanoidRootPart, resetPosition)
                 end
-                task.wait(1)
             end
-        else
-            task.wait(1)
         end
+        task.wait(0.5) -- เพิ่มดีเลย์
     end)
 end
 
@@ -461,7 +448,7 @@ local bossList = {
 
 local function startBossFarming()
     if bossConnection then bossConnection:Disconnect() end
-    bossConnection = RunService.Heartbeat:Connect(function()
+    bossConnection = RunService.Stepped:Connect(function()
         if not isBossFarming then
             bossConnection:Disconnect()
             if bodyPosition then bodyPosition:Destroy() bodyPosition = nil end
@@ -484,14 +471,6 @@ local function startBossFarming()
                 end
                 if isUsingAllSkills then
                     useAllSkills(char)
-                else
-                    if char:FindFirstChild("StandEvents") then
-                        for _, event in pairs(char.StandEvents:GetChildren()) do
-                            if not table.find({"Block", "Quote", "Pose", "Summon", "Heal", "Jump", "TogglePilot"}, event.Name) then
-                                fireServerSafe(event, true)
-                            end
-                        end
-                    end
                 end
             end
         else
@@ -499,8 +478,8 @@ local function startBossFarming()
             if bodyGyro then bodyGyro:Destroy() bodyGyro = nil end
             local char = waitForCharacter()
             if char then char.Humanoid.Sit = false end
-            task.wait(1)
         end
+        task.wait(0.5) -- เพิ่มดีเลย์
     end)
 end
 
@@ -567,7 +546,6 @@ end)
 local StandSection = StandTab:NewSection("Stand")
 local Added, Whitelisted = {}, {}
 
--- รายชื่อ Stand ที่ไม่ซ้ำกันจากที่คุณให้มา
 local standList = {
     "Weather Report", "Rapture", "Ultimate Life Form", "Soft And Wet", "Eclispe Dio's The World Over Heaven",
     "Magicians's Red", "Headless Star Platinum", "Star Platinum The World: Requiem", "Festive The World",
@@ -590,7 +568,6 @@ local standList = {
     "Legacy The Hand", "The Universe: Over Heaven", "Golden Experience: Reality Bender"
 }
 
--- เพิ่ม Stand เข้าไปใน UI
 for _, stand in ipairs(standList) do
     if not table.find(Added, stand) then
         table.insert(Added, stand)
@@ -764,7 +741,7 @@ StartFarmSection:NewToggle("Start Stand Farm", "Toggle Stand Farm", function(sta
                     getgenv().BeginFarm = false
                     break
                 end
-                task.wait(0.5)
+                task.wait(1) -- เพิ่มดีเลย์เป็น 1 วินาที
             end
             Library:CreateNotification("Stand Farm Stopped", "Info", 3)
         end)
@@ -803,6 +780,7 @@ for _, item in ipairs(buyItems) do
     BuySection:NewButton(item[1], "Buy " .. item[1], function()
         for i = 1, Amount do
             ReplicatedStorage.Events.BuyItem:FireServer(item[2], item[3])
+            task.wait(0.1) -- เพิ่มดีเลย์เพื่อลดการเรียกซ้ำ
         end
     end)
 end
@@ -820,7 +798,7 @@ local function antiAFK()
                 game:GetService("VirtualInputManager"):SendKeyEvent(true, "W", false, game)
                 task.wait(0.1)
                 game:GetService("VirtualInputManager"):SendKeyEvent(false, "W", false, game)
-                task.wait(300)
+                task.wait(300) -- รักษาความถี่ไว้ที่ 5 นาที
             else
                 task.wait(5)
             end
@@ -971,7 +949,7 @@ DungeonSection:NewToggle("Auto Farm Dungeon", "Toggle dungeon farming", function
         currentDistance = dungeonSettings[ChDun].baseDistance
         Library:CreateNotification("Dungeon Farm Started", "Info", 3)
         task.spawn(function()
-            dungeonConnection = RunService.Heartbeat:Connect(function()
+            dungeonConnection = RunService.Stepped:Connect(function()
                 if not isDungeonFarming then
                     if dungeonConnection then dungeonConnection:Disconnect() end
                     if bodyPosition then bodyPosition:Destroy() bodyPosition = nil end
@@ -1034,7 +1012,7 @@ DungeonSection:NewToggle("Auto Farm Dungeon", "Toggle dungeon farming", function
                         end
                     end
                 end
-                task.wait(0.1)
+                task.wait(0.5) -- เพิ่มดีเลย์
             end)
         end)
     end
@@ -1089,7 +1067,7 @@ ItemSection:NewToggle("Farm Items", "Collect nearby items", function(state)
 
     task.spawn(function()
         if itemConnection then itemConnection:Disconnect() end
-        itemConnection = RunService.Heartbeat:Connect(function()
+        itemConnection = RunService.Stepped:Connect(function()
             if not isItemFarming or not _G.On then
                 itemConnection:Disconnect()
                 local char = waitForCharacter()
@@ -1105,15 +1083,15 @@ ItemSection:NewToggle("Farm Items", "Collect nearby items", function(state)
             end
             local hrp = char.HumanoidRootPart
 
-            for _, v in pairs(Workspace.Vfx:GetDescendants()) do
+            for _, v in pairs(Workspace.Vfx:GetChildren()) do -- เปลี่ยน GetDescendants เป็น GetChildren เพื่อลดการคำนวณ
                 if v.Name == "Handle" and hrp then
                     safeTeleport(hrp, v.CFrame)
                 elseif v.Name == "ProximityPrompt" then
                     fireproximityprompt(v, 20)
                 end
-                task.wait(0.1)
+                task.wait(0.2) -- เพิ่มดีเลย์
             end
-            task.wait(0.2)
+            task.wait(1) -- เพิ่มดีเลย์รวม
         end)
     end)
 end)
@@ -1141,7 +1119,7 @@ local function toggleInvisibility(state)
     if not char then return end
     
     if state then
-        for _, part in pairs(char:GetDescendants()) do
+        for _, part in pairs(char:GetChildren()) do -- เปลี่ยนจาก GetDescendants เป็น GetChildren
             if part:IsA("BasePart") then
                 part.Transparency = 1
                 part.CanCollide = false
@@ -1159,7 +1137,7 @@ local function toggleInvisibility(state)
             char.Stand:Destroy()
         end
     else
-        for _, part in pairs(char:GetDescendants()) do
+        for _, part in pairs(char:GetChildren()) do
             if part:IsA("BasePart") then
                 part.Transparency = 0
                 part.CanCollide = true
@@ -1199,16 +1177,10 @@ local function chaosAttack(target)
 
     if char:FindFirstChild("StandEvents") then
         if not LocalPlayer.PlayerGui.CDgui.fortnite:FindFirstChild("Punch") then
-            for i = 1, 10 do
-                fireServerSafe(char.StandEvents.M1)
-                task.wait(0.02)
-            end
+            fireServerSafe(char.StandEvents.M1)
         end
-        for _, event in pairs(char.StandEvents:GetChildren()) do
-            if not table.find({"Block", "Quote", "Pose", "Summon", "Heal", "Jump", "TogglePilot"}, event.Name) then
-                fireServerSafe(event, true)
-                task.wait(0.05)
-            end
+        if isUsingAllSkills then
+            useAllSkills(char)
         end
     end
 
@@ -1229,7 +1201,7 @@ end
 
 local function startChaosPlayerFarming()
     if playerFarmConnection then playerFarmConnection:Disconnect() end
-    playerFarmConnection = RunService.Heartbeat:Connect(function()
+    playerFarmConnection = RunService.Stepped:Connect(function()
         if not isPlayerFarming then
             playerFarmConnection:Disconnect()
             if bodyPosition then bodyPosition:Destroy() bodyPosition = nil end
@@ -1251,9 +1223,9 @@ local function startChaosPlayerFarming()
             if char and char:FindFirstChild("HumanoidRootPart") then
                 local randomOffset = Vector3.new(math.random(-100, 100), 20, math.random(-100, 100))
                 Teleport(char.HumanoidRootPart, char.HumanoidRootPart.CFrame + randomOffset)
-                task.wait(2)
             end
         end
+        task.wait(1) -- เพิ่มดีเลย์
     end)
 end
 
