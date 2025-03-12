@@ -11,7 +11,6 @@ ScreenGui.Parent = game.CoreGui
 local Frame_1 = Instance.new("Frame")
 local ImageButton_1 = Instance.new("ImageButton")
 
--- Properties:
 Frame_1.Parent = ScreenGui
 Frame_1.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
 Frame_1.Position = UDim2.new(0.0496077649, 0, 0.134853914, 0)
@@ -28,20 +27,21 @@ ImageButton_1.MouseButton1Down:Connect(function()
     game:GetService("VirtualInputManager"):SendKeyEvent(true, "RightControl", false, game)
 end)
 
--- โหลด Kavo UI Library และตรวจสอบการโหลด
+-- โหลด Kavo UI Library
 local success, Library = pcall(function()
     return loadstring(game:HttpGet("https://raw.githubusercontent.com/EVILDARKSIDEUPV1/ui/main/README.md"))()
 end)
 if not success or not Library then
-    warn("Failed to load Kavo UI Library! Please check your internet connection or the URL. Library value: " .. tostring(Library))
+    warn("Failed to load Kavo UI Library! Please check your internet connection or the URL.")
     return
 end
 
--- ตรวจสอบฟังก์ชัน CreateNotification
 if not Library.CreateNotification then
     warn("CreateNotification function not found in Kavo UI Library! Using fallback notification.")
     Library.CreateNotification = function(message, title, duration)
-        print("Notification (Fallback): " .. title .. " - " .. (type(message) == "table" and table.concat(message, ", ") or tostring(message)) .. " (Duration: " .. duration .. "s)")
+        if debugMode then
+            print("Notification (Fallback): " .. title .. " - " .. tostring(message) .. " (Duration: " .. duration .. "s)")
+        end
     end
 end
 
@@ -64,13 +64,8 @@ local debugMode = false
 local webhookurl, UseWebhook = "", false
 local function sendWebhookNotification(message, isStandFarm, isFarmLevel)
     if not UseWebhook or webhookurl == "" or (not isStandFarm and not isFarmLevel) then
-        if debugMode then
-            print("Webhook not sent: UseWebhook is " .. tostring(UseWebhook) .. ", webhookurl is '" .. webhookurl .. "', isStandFarm: " .. tostring(isStandFarm) .. ", isFarmLevel: " .. tostring(isFarmLevel))
-        end
         return false
     end
-
-    -- ตรวจสอบและแปลง message เป็น string ถ้าเป็น table
     local msg = type(message) == "table" and table.concat(message, "\n") or tostring(message)
     local success, errorMsg = pcall(function()
         local payload = {
@@ -79,18 +74,13 @@ local function sendWebhookNotification(message, isStandFarm, isFarmLevel)
             ["avatar_url"] = "https://www.roblox.com/asset/?id=12514663645"
         }
         local jsonPayload = HttpService:JSONEncode(payload)
-        local response = HttpService:PostAsync(webhookurl, jsonPayload, Enum.HttpContentType.ApplicationJson)
-        if debugMode then
-            print("Webhook sent successfully! Response: " .. tostring(response))
-        end
+        HttpService:PostAsync(webhookurl, jsonPayload, Enum.HttpContentType.ApplicationJson)
     end)
-
     if not success then
         warn("Webhook Error: " .. errorMsg)
         Library:CreateNotification("Webhook Error: " .. errorMsg, "Error", 5)
-        return false
     end
-    return true
+    return success
 end
 
 -- ฟังก์ชัน Teleport
@@ -99,7 +89,6 @@ local function Teleport(part, cframe)
         pcall(function()
             part.CFrame = cframe
             part.Velocity = Vector3.new(0, 0, 0)
-            if debugMode then print("Teleported " .. part.Name .. " to: " .. tostring(cframe)) end
         end)
     end
 end
@@ -110,13 +99,12 @@ local function waitForCharacter()
     local hrp = char:WaitForChild("HumanoidRootPart", 5)
     local humanoid = char:WaitForChild("Humanoid", 5)
     if not hrp or not humanoid then
-        warn("HumanoidRootPart or Humanoid not found!")
         return nil
     end
     return char
 end
 
--- เริ่มรันสคริปต์: TP เพื่อโหลดแมพก่อนสร้าง UI
+-- โหลดแมพก่อนสร้าง UI
 local char = waitForCharacter()
 if not char then return end
 local hrp = char.HumanoidRootPart
@@ -159,20 +147,17 @@ end
 
 -- ฟังก์ชันเรียก RemoteEvent อย่างปลอดภัย
 local function fireServerSafe(remote, arg)
-    local success, err = pcall(function()
+    local success = pcall(function()
         if arg ~= nil then
             remote:FireServer(arg)
         else
             remote:FireServer()
         end
     end)
-    if not success then
-        Library:CreateNotification("Error firing " .. remote.Name .. ": " .. err, "Error", 5)
-    end
     return success
 end
 
--- ฟังก์ชันใช้สกิลทั้งหมดแบบคอมโบไว
+-- ฟังก์ชันใช้สกิลทั้งหมด
 local function useAllSkills(char)
     if char and char:FindFirstChild("StandEvents") then
         for _, event in pairs(char.StandEvents:GetChildren()) do
@@ -320,7 +305,6 @@ end)
 
 FarmSection:NewDropdown("Select Quest/Monster", "Choose a quest to farm", questList, function(selected)
     selectedQuest = selected
-    if debugMode then print("Selected quest: " .. selectedQuest) end
 end)
 
 FarmSection:NewSlider("Y Offset", "Adjust hover height", -30, 30, function(value)
@@ -333,7 +317,6 @@ end, 0)
 
 FarmSection:NewToggle("Use All Skills", "Toggle using all skills", function(state)
     isUsingAllSkills = state
-    if debugMode then print("Use All Skills: " .. tostring(isUsingAllSkills)) end
 end)
 
 FarmSection:NewButton("Refresh Character", "Reset character state", function()
@@ -342,7 +325,6 @@ FarmSection:NewButton("Refresh Character", "Reset character state", function()
         if bodyPosition then bodyPosition:Destroy() bodyPosition = nil end
         if bodyGyro then bodyGyro:Destroy() bodyGyro = nil end
         char.Humanoid.Sit = false
-        if debugMode then print("Character refreshed!") end
     end
 end)
 
@@ -395,7 +377,6 @@ local function startLevelFarming()
         end
         
         local level = LocalPlayer.Data.Level.Value or 1
-        local money = LocalPlayer.Data.Money.Value or 0
         local matchedSetting = nil
         for _, setting in ipairs(levelMap) do
             if level >= setting.minLevel and level <= setting.maxLevel then
@@ -412,13 +393,6 @@ local function startLevelFarming()
                 if npc then
                     fireServerSafe(npc.Done)
                     fireServerSafe(npc.QuestDone)
-                    sendWebhookNotification(
-                        "🏆 Quest Reward: **" .. matchedSetting[1] .. " Quest**\n" ..
-                        "🔥 Current Level: **" .. level .. "**\n" ..
-                        "💰 Current Money: **" .. money .. "**",
-                        false, -- isStandFarm
-                        true   -- isFarmLevel
-                    )
                 end
                 local char = waitForCharacter()
                 if char then
@@ -524,9 +498,7 @@ local function startBossFarming()
             if bodyPosition then bodyPosition:Destroy() bodyPosition = nil end
             if bodyGyro then bodyGyro:Destroy() bodyGyro = nil end
             local char = waitForCharacter()
-            if char then
-                char.Humanoid.Sit = false
-            end
+            if char then char.Humanoid.Sit = false end
             task.wait(1)
         end
     end)
@@ -562,8 +534,13 @@ end)
 local StandTab = Window:NewTab("Stand Farm")
 local StandCheckSection = StandTab:NewSection("Check Stand-Attri")
 local CheckStand, CheckAttri = false, false
-StandCheckSection:NewToggle("Stand Check", "Toggle Stand Check", function() CheckStand = not CheckStand end)
-StandCheckSection:NewToggle("Attribute Check", "Toggle Attribute Check", function() CheckAttri = not CheckAttri end)
+
+StandCheckSection:NewToggle("Stand Check", "Toggle Stand Check", function(state) 
+    CheckStand = state 
+end)
+StandCheckSection:NewToggle("Attribute Check", "Toggle Attribute Check", function(state) 
+    CheckAttri = state 
+end)
 
 local StorageSection = StandTab:NewSection("Open Stand Storage")
 StorageSection:NewButton("Open Stand Storage", "Click to Open", function()
@@ -574,18 +551,12 @@ local ItemSection = StandTab:NewSection("Use Item Farm Stand")
 local ArrowToUse = "Stand Arrow"
 ItemSection:NewButton("Use Stand Arrows", "Set to Stand Arrow", function()
     ArrowToUse = "Stand Arrow"
-    Library:CreateNotification("Farm set to Use Stand Arrow", "Info", 3)
-    task.wait(1.5)
 end)
 ItemSection:NewButton("Use Charged Arrows", "Set to Charged Arrow", function()
     ArrowToUse = "Charged Arrow"
-    Library:CreateNotification("Farm set to Use Charged Arrow", "Info", 3)
-    task.wait(1.5)
 end)
 ItemSection:NewButton("Use Kars Mask", "Set to Kars Mask", function()
     ArrowToUse = "Kars Mask"
-    Library:CreateNotification("Farm set to Use Kars Mask", "Info", 3)
-    task.wait(1.5)
 end)
 
 local StandSection = StandTab:NewSection("Stand")
@@ -607,44 +578,37 @@ local Added, Whitelisted, Blacklisted = {}, {}, {
 for _, v in ipairs(ReplicatedStorage.StandNameConvert:GetChildren()) do
     if v:IsA("StringValue") and not table.find(Added, v.Value) and not table.find(Blacklisted, v.Value) then
         table.insert(Added, v.Value)
-        StandSection:NewToggle(v.Value, "Toggle Stand", function()
-            if table.find(Whitelisted, v.Value) then
-                table.remove(Whitelisted, table.find(Whitelisted, v.Value))
+        StandSection:NewToggle(v.Value, "Toggle Stand", function(state)
+            if state then
+                if not table.find(Whitelisted, v.Value) then
+                    table.insert(Whitelisted, v.Value)
+                end
             else
-                table.insert(Whitelisted, v.Value)
+                local index = table.find(Whitelisted, v.Value)
+                if index then
+                    table.remove(Whitelisted, index)
+                end
             end
-        end)
+        end, false)
     end
 end
 
 local AttriSection = StandTab:NewSection("Attri")
 local WhitelistedAttributes = {}
-local attributes = {"None", "Godly", "Daemon", "Glass Cannon", "Invincible", "Tragic", "Hacker", "Legendary"}
+local attributes = {"None", "Godly", "Daemon", "Glass Cannon", "Invincible", "Tragic", "Scourge", "Hacker", "Legendary"}
 for _, attr in ipairs(attributes) do
-    AttriSection:NewToggle(attr, "Toggle Attribute", function()
-        if table.find(WhitelistedAttributes, attr) then
-            table.remove(WhitelistedAttributes, table.find(WhitelistedAttributes, attr))
+    AttriSection:NewToggle(attr, "Toggle Attribute", function(state)
+        if state then
+            if not table.find(WhitelistedAttributes, attr) then
+                table.insert(WhitelistedAttributes, attr)
+            end
         else
-            table.insert(WhitelistedAttributes, attr)
+            if table.find(WhitelistedAttributes, attr) then
+                table.remove(WhitelistedAttributes, table.find(WhitelistedAttributes, attr))
+            end
         end
-    end)
+    end, false)
 end
-
-local WebhookSection = StandTab:NewSection("Webhook Settings")
-WebhookSection:NewToggle("Enable Webhook", "Toggle Webhook notifications", function(state)
-    UseWebhook = state
-    Library:CreateNotification("Webhook " .. (state and "Enabled" or "Disabled"), "Info", 3)
-    if debugMode then
-        print("UseWebhook set to: " .. tostring(UseWebhook))
-    end
-end)
-WebhookSection:NewTextBox("Set Webhook URL", "Enter Discord Webhook URL", function(input)
-    webhookurl = input
-    Library:CreateNotification("Webhook URL set to: " .. input, "Info", 3)
-    if debugMode then
-        print("Webhook URL set to: " .. webhookurl)
-    end
-end)
 
 local StartFarmSection = StandTab:NewSection("Start Farm")
 
@@ -652,7 +616,6 @@ local function CheckInfo()
     local success, playerGui = pcall(function() return LocalPlayer.PlayerGui.PlayerGUI.ingame.Stats.StandName end)
     local PlayerStand = success and playerGui:FindFirstChild("Name_") and playerGui.Name_.TextLabel.Text or "None"
     local PlayerAttri = LocalPlayer.Data.Attri.Value or "None"
-    if debugMode then print("Debug - PlayerStand:", PlayerStand, "PlayerAttri:", PlayerAttri) end
     local standMatch = CheckStand and table.find(Whitelisted, PlayerStand)
     local attriMatch = CheckAttri and table.find(WhitelistedAttributes, PlayerAttri)
 
@@ -667,10 +630,28 @@ local function CheckInfo()
     end
 end
 
+local function useRokakaka(char)
+    local rokakaka = LocalPlayer.Backpack:FindFirstChild("Rokakaka")
+    if rokakaka then
+        char.Humanoid:EquipTool(rokakaka)
+        task.wait(0.2)
+        if char:FindFirstChild("Rokakaka") then
+            char.Rokakaka:Activate()
+            fireServerSafe(ReplicatedStorage.Events.UseItem)
+            local prompt = char.Rokakaka:FindFirstChildOfClass("ProximityPrompt")
+            if prompt then fireproximityprompt(prompt, 1) end
+            repeat task.wait(0.5) until LocalPlayer.Data.Stand.Value == "None" or not getgenv().BeginFarm
+        end
+    else
+        Library:CreateNotification("Error: No Rokakaka in Backpack!", "Error", 5)
+    end
+end
+
 local function CycleStand()
     local char = waitForCharacter()
     if not char then return end
     local stand = LocalPlayer.Data.Stand.Value or "None"
+    local attriValue = LocalPlayer.Data.Attri.Value or "None"
 
     if stand == "None" then
         local arrow = LocalPlayer.Backpack:FindFirstChild(ArrowToUse)
@@ -683,49 +664,27 @@ local function CycleStand()
         if char:FindFirstChild(ArrowToUse) then
             char[ArrowToUse]:Activate()
             fireServerSafe(ReplicatedStorage.Events.UseItem)
-            Library:CreateNotification("Using " .. ArrowToUse, "Info", 3)
             repeat task.wait(0.5) until LocalPlayer.Data.Stand.Value ~= "None" or not getgenv().BeginFarm
         end
-    elseif CheckInfo() then
-        local stored = false
-        for i = 1, 2 do
-            if LocalPlayer.Data["Slot" .. i .. "Stand"].Value == "None" then
-                Library:CreateNotification("Storing " .. stand .. " to Slot " .. i, "Info", 3)
-                fireServerSafe(ReplicatedStorage.Events.SwitchStand, "Slot" .. i)
-                repeat task.wait(0.5) until LocalPlayer.Data.Stand.Value == "None" or not getgenv().BeginFarm
-                if LocalPlayer.Data.Stand.Value == "None" then
-                    Library:CreateNotification("Stored " .. stand .. " Successfully", "Success", 3)
-                    local attribute = LocalPlayer.Data.Attri.Value or "None"
-                    sendWebhookNotification(
-                        "✨ Stand Obtained: **" .. stand .. "**\n" ..
-                        "⚡ Attribute: **" .. attribute .. "**\n" ..
-                        "🎉 Stored in Slot " .. i,
-                        true,  -- isStandFarm
-                        false  -- isFarmLevel
-                    )
-                    stored = true
+    elseif CheckStand and table.find(Whitelisted, stand) then
+        if CheckAttri and not table.find(WhitelistedAttributes, attriValue) then
+            useRokakaka(char)
+        elseif CheckInfo() then
+            local stored = false
+            for i = 1, 2 do
+                if LocalPlayer.Data["Slot" .. i .. "Stand"].Value == "None" then
+                    fireServerSafe(ReplicatedStorage.Events.SwitchStand, "Slot" .. i)
+                    repeat task.wait(0.5) until LocalPlayer.Data.Stand.Value == "None" or not getgenv().BeginFarm
+                    if LocalPlayer.Data.Stand.Value == "None" then stored = true end
+                    break
                 end
-                break
+            end
+            if not stored then
+                Library:CreateNotification("Storage Full: No empty slots available!", "Error", 5)
             end
         end
-        if not stored then
-            Library:CreateNotification("Storage Full: No empty slots available!", "Error", 5)
-            return
-        end
     else
-        local rokakaka = LocalPlayer.Backpack:FindFirstChild("Rokakaka")
-        if not rokakaka then
-            Library:CreateNotification("Error: No Rokakaka in Backpack!", "Error", 5)
-            return
-        end
-        char.Humanoid:EquipTool(rokakaka)
-        task.wait(0.2)
-        if char:FindFirstChild("Rokakaka") then
-            char.Rokakaka:Activate()
-            fireServerSafe(ReplicatedStorage.Events.UseItem)
-            Library:CreateNotification("Using Rokakaka to reset Stand", "Info", 3)
-            repeat task.wait(0.5) until LocalPlayer.Data.Stand.Value == "None" or not getgenv().BeginFarm
-        end
+        useRokakaka(char)
     end
 end
 
@@ -763,7 +722,6 @@ end)
 -- Auto Buy Item Tab
 local BuyTab = Window:NewTab("Auto Buy Item")
 local BuySection = BuyTab:NewSection("Stand near NPC and set amount before buying")
-
 local Amount = 1
 
 BuySection:NewButton("Teleport to Shop", "Warp to shop location", function()
@@ -787,7 +745,6 @@ local buyItems = {
     {"Dio Diary (1,500,000c)", "Merchantlvl120", "Option3"},
     {"Requiem Arrow (1,500,000c)", "Merchantlvl120", "Option4"}
 }
-
 for _, item in ipairs(buyItems) do
     BuySection:NewButton(item[1], "Buy " .. item[1], function()
         for i = 1, Amount do
@@ -825,9 +782,6 @@ end)
 SettingsSection:NewToggle("Debug Mode", "Enable debug prints in F9", function(state)
     debugMode = state
     Library:CreateNotification("Debug Mode " .. (debugMode and "Enabled" or "Disabled"), "Info", 3)
-    if debugMode then
-        print("Debug Mode activated. Check F9 for details.")
-    end
 end)
 
 SettingsSection:NewKeybind("Toggle UI", "Show/hide UI", Enum.KeyCode.RightControl, function()
@@ -849,25 +803,23 @@ local dungeonSettings = {
     ["Dungeon [Lvl.200+]"] = {npcMonster = "i_stabman [Lvl. 200+]", bossName = "Jotaro P6 [Dungeon]", baseDistance = 15}
 }
 
-local ChDun = "Dungeon [Lvl.15+]" -- ดันเจี้ยนเริ่มต้น
+local ChDun = "Dungeon [Lvl.15+]"
 local isDungeonFarming = false
 local dungeonConnection
 local lastTeleport = 0
 local currentTarget = nil
 local safePosition = nil
-local currentDistance = 7 -- ระยะห่างปัจจุบัน
-local minDistance = 3 -- ระยะห่างขั้นต่ำ
-local maxDistance = 20 -- ระยะห่างสูงสุด
-local lastHealth = 0 -- สุขภาพบอสครั้งล่าสุด
-local lastDamageCheck = 0 -- เวลาที่เช็คดาเมจครั้งล่าสุด
+local currentDistance = 7
+local minDistance = 3
+local maxDistance = 20
+local lastHealth = 0
+local lastDamageCheck = 0
 
--- ฟังก์ชันตรวจสอบสถานะเควส
 local function isQuestActive()
     local questGui = LocalPlayer.PlayerGui:FindFirstChild("QuestGui")
     return questGui and questGui:FindFirstChild("Active") and questGui.Active.Value or false
 end
 
--- ค้นหา NPC สำหรับรับเควส
 local function findDungeonNPC()
     for _, npc in ipairs(Workspace.Map.NPCs:GetChildren()) do
         if npc.Name:find("i_stabman") and npc:FindFirstChild("Head") and npc.Head:FindFirstChild("Main") and npc.Head.Main:FindFirstChild("Text") then
@@ -883,7 +835,6 @@ local function findDungeonNPC()
     return nil
 end
 
--- ค้นหาบอสในดันเจี้ยน
 local function findDungeonBoss()
     for _, boss in pairs(Workspace.Living:GetChildren()) do
         if boss.Name == "Boss" and boss:FindFirstChild("Humanoid") and boss.Humanoid.Health > 0 then
@@ -899,7 +850,6 @@ local function findDungeonBoss()
     return nil
 end
 
--- อัปเดตตำแหน่งตัวละครไปยังเป้าหมายพร้อมระยะห่างที่เหมาะสม
 local function updatePositionToTarget(target)
     local char = waitForCharacter()
     if not char or not target or not target:FindFirstChild("HumanoidRootPart") then return end
@@ -924,57 +874,47 @@ local function updatePositionToTarget(target)
     end
 end
 
--- ฟังก์ชันตรวจสอบและปรับระยะห่าง
 local function adjustDistanceIfNoDamage(boss)
     if not boss or not boss:FindFirstChild("Humanoid") then return end
     local now = tick()
     
-    if now - lastDamageCheck >= 2 then -- ตรวจสอบทุก 2 วินาที
+    if now - lastDamageCheck >= 2 then
         local currentHealth = boss.Humanoid.Health
-        if currentHealth >= lastHealth and lastHealth > 0 then -- ไม่มีดาเมจเกิดขึ้น
+        if currentHealth >= lastHealth and lastHealth > 0 then
             if currentDistance > minDistance then
-                currentDistance = math.max(minDistance, currentDistance - 2) -- ลดระยะห่างลง
-                Library:CreateNotification("No damage dealt! Reducing distance to " .. currentDistance, "Info", 2)
+                currentDistance = math.max(minDistance, currentDistance - 2)
             end
-        elseif currentHealth < lastHealth then -- มีดาเมจเกิดขึ้น
-            if debugMode then print("Damage dealt at distance: " .. currentDistance) end
         end
         lastHealth = currentHealth
         lastDamageCheck = now
     end
 end
 
--- UI: เลือกดันเจี้ยน
 DungeonSection:NewDropdown("Choose Dungeon", "Select a dungeon to farm", DunLvl, function(AuDun)
-    if not AuDun then
-        Library:CreateNotification("Invalid Selection!", "Please choose a valid dungeon.", 3)
-        return
-    end
+    if not AuDun then return end
     ChDun = AuDun
     currentDistance = dungeonSettings[ChDun].baseDistance
     currentTarget = nil
     safePosition = nil
     lastHealth = 0
     lastDamageCheck = 0
-    Library:CreateNotification("Selected Dungeon: " .. AuDun, "Saving selection...", 2)
 end)
 
--- UI: เปิด/ปิดการฟาร์มดันเจี้ยน
 DungeonSection:NewToggle("Auto Farm Dungeon", "Toggle dungeon farming", function(state)
     isDungeonFarming = state
     if isFarming or isLevelFarming or isBossFarming then
-        Library:CreateNotification("Error", "Please disable other farming modes first!", 5)
+        Library:CreateNotification("Please disable other farming modes first!", "Error", 5)
         isDungeonFarming = false
         return
     end
     if not ChDun or not dungeonSettings[ChDun] then
-        Library:CreateNotification("Error", "No valid dungeon selected!", 5)
+        Library:CreateNotification("No valid dungeon selected!", "Error", 5)
         isDungeonFarming = false
         return
     end
 
     if isDungeonFarming then
-        currentDistance = dungeonSettings[ChDun].baseDistance -- รีเซ็ตระยะเริ่มต้น
+        currentDistance = dungeonSettings[ChDun].baseDistance
         Library:CreateNotification("Dungeon Farm Started", "Info", 3)
         task.spawn(function()
             dungeonConnection = RunService.Heartbeat:Connect(function()
@@ -996,7 +936,6 @@ DungeonSection:NewToggle("Auto Farm Dungeon", "Toggle dungeon farming", function
                 local hrp = char.HumanoidRootPart
                 local now = tick()
 
-                -- ขั้นตอน 1: รับเควสจาก NPC
                 if not isQuestActive() and (not currentTarget or currentTarget == "NPC") then
                     local npc = findDungeonNPC()
                     if npc and now - lastTeleport > 1 then
@@ -1008,22 +947,17 @@ DungeonSection:NewToggle("Auto Farm Dungeon", "Toggle dungeon farming", function
                             if prompt then fireproximityprompt(prompt, 20) end
                             local done = npc:FindFirstChild("Done")
                             if done then fireServerSafe(done) end
-                            Library:CreateNotification("Quest Accepted from NPC", "Info", 2)
                             currentTarget = "Boss"
-                            task.wait(5) -- รอให้เกมวาร์ปไปห้องบอส
+                            task.wait(5)
                         end
-                    else
-                        Library:CreateNotification("Error: Could not find NPC!", "Error", 5)
                     end
                 end
 
-                -- ขั้นตอน 2: ฟาร์มบอส
                 if currentTarget == "Boss" then
                     local boss = findDungeonBoss()
                     if boss then
                         updatePositionToTarget(boss)
-                        adjustDistanceIfNoDamage(boss) -- ปรับระยะถ้าไม่มีดาเมจ
-                        
+                        adjustDistanceIfNoDamage(boss)
                         if char:FindFirstChild("Aura") and not char.Aura.Value then
                             fireServerSafe(char.StandEvents.Summon)
                         end
@@ -1032,7 +966,6 @@ DungeonSection:NewToggle("Auto Farm Dungeon", "Toggle dungeon farming", function
                         end
                         if isUsingAllSkills then useAllSkills(char) end
                     else
-                        -- บอสตายหรือหายไป ส่งเควสและกลับไปหา NPC
                         if now - lastTeleport > 5 then
                             if safePosition then
                                 Teleport(hrp, safePosition)
@@ -1042,7 +975,6 @@ DungeonSection:NewToggle("Auto Farm Dungeon", "Toggle dungeon farming", function
                                     local questDone = npc:FindFirstChild("QuestDone")
                                     if questDone then fireServerSafe(questDone) end
                                 end
-                                Library:CreateNotification("Boss Defeated! Returning to NPC", "Success", 3)
                                 currentTarget = "NPC"
                             end
                         end
@@ -1054,20 +986,16 @@ DungeonSection:NewToggle("Auto Farm Dungeon", "Toggle dungeon farming", function
     end
 end)
 
--- UI: ปรับระยะห่างเพิ่มเติม
 DungeonSection:NewSlider("Y Offset", "Adjust hover height", -30, 30, function(value)
     Disc = value
-    if debugMode then print("Y Offset set to: " .. Disc) end
 end, 7)
 
 DungeonSection:NewSlider("Z Offset", "Adjust forward/backward distance", -30, 30, function(value)
     Disc3 = value
-    if debugMode then print("Z Offset set to: " .. Disc3) end
 end, 0)
 
 DungeonSection:NewToggle("Use All Skills", "Toggle using all skills", function(state)
     isUsingAllSkills = state
-    if debugMode then print("Use All Skills: " .. tostring(isUsingAllSkills)) end
 end)
 
 DungeonSection:NewButton("Refresh Character", "Reset character state", function()
@@ -1076,7 +1004,6 @@ DungeonSection:NewButton("Refresh Character", "Reset character state", function(
         if bodyPosition then bodyPosition:Destroy() bodyPosition = nil end
         if bodyGyro then bodyGyro:Destroy() bodyGyro = nil end
         char.Humanoid.Sit = false
-        if debugMode then print("Character refreshed!") end
     end
 end)
 
@@ -1091,7 +1018,6 @@ local function safeTeleport(part, cframe)
         pcall(function()
             part.CFrame = cframe
             part.Velocity = Vector3.new(0, 0, 0)
-            if debugMode then print("Teleported " .. part.Name .. " to: " .. tostring(cframe)) end
         end)
     end
 end
@@ -1146,7 +1072,6 @@ local playerFarmConnection
 local invisibilityEnabled = false
 local selectedPlayer = nil
 
--- สร้างรายชื่อผู้เล่นสำหรับ Dropdown
 local function getPlayerList()
     local playerList = {}
     for _, player in pairs(game:GetService("Players"):GetPlayers()) do
@@ -1157,7 +1082,6 @@ local function getPlayerList()
     return playerList
 end
 
--- ฟังก์ชันทำให้ไม่มีตัวตน
 local function toggleInvisibility(state)
     local char = waitForCharacter()
     if not char then return end
@@ -1180,7 +1104,6 @@ local function toggleInvisibility(state)
         if char:FindFirstChild("Stand") then
             char.Stand:Destroy()
         end
-        Library:CreateNotification("Invisibility Enabled - You are a phantom!", "Success", 3)
     else
         for _, part in pairs(char:GetDescendants()) do
             if part:IsA("BasePart") then
@@ -1193,50 +1116,40 @@ local function toggleInvisibility(state)
         if char:FindFirstChild("Head") and char.Head:FindFirstChild("Nametag") then
             char.Head.Nametag.Enabled = true
         end
-        Library:CreateNotification("Invisibility Disabled - You are visible!", "Info", 3)
     end
     invisibilityEnabled = state
 end
 
--- ฟังก์ชันวาร์ปแบบสุ่มรอบเป้าหมาย
 local function randomTeleportAroundTarget(target)
     local char = waitForCharacter()
     if not char or not target or not target:FindFirstChild("HumanoidRootPart") then return end
     local hrp = char.HumanoidRootPart
     local targetHRP = target.HumanoidRootPart
 
-    -- สุ่มตำแหน่งรอบเป้าหมายในรัศมี 10-20 studs
     local angle = math.random(0, 360)
     local distance = math.random(10, 20)
     local offset = Vector3.new(math.cos(angle) * distance, Disc, math.sin(angle) * distance)
     local randomPos = targetHRP.Position + offset
-    local lookAtCFrame = CFrame.new(randomPos, targetHRP.Position) -- จับทิศทางไปยังเป้าหมาย
-
+    local lookAtCFrame = CFrame.new(randomPos, targetHRP.Position)
     Teleport(hrp, lookAtCFrame)
-    if debugMode then print("Random teleported to: " .. tostring(lookAtCFrame)) end
 end
 
--- ฟังก์ชันโจมตีแบบโหดสุดขีด
 local function chaosAttack(target)
     local char = waitForCharacter()
     if not char or not target or not target:FindFirstChild("HumanoidRootPart") then return end
     local targetHRP = target.HumanoidRootPart
 
-    -- เรียก Stand
     if char:FindFirstChild("Aura") and not char.Aura.Value then
         fireServerSafe(char.StandEvents.Summon)
     end
 
-    -- โจมตีแบบคลั่ง
     if char:FindFirstChild("StandEvents") then
-        -- M1 Spam ความเร็วสูง
         if not LocalPlayer.PlayerGui.CDgui.fortnite:FindFirstChild("Punch") then
             for i = 1, 10 do
                 fireServerSafe(char.StandEvents.M1)
-                task.wait(0.02) -- ความเร็วสูงสุด
+                task.wait(0.02)
             end
         end
-        -- ใช้ทุกสกิลแบบต่อเนื่อง
         for _, event in pairs(char.StandEvents:GetChildren()) do
             if not table.find({"Block", "Quote", "Pose", "Summon", "Heal", "Jump", "TogglePilot"}, event.Name) then
                 fireServerSafe(event, true)
@@ -1245,7 +1158,6 @@ local function chaosAttack(target)
         end
     end
 
-    -- รบกวนเป้าหมายด้วย BodyVelocity และ BodyGyro
     pcall(function()
         local bv = Instance.new("BodyVelocity")
         bv.Velocity = Vector3.new(math.random(-50, 50), math.random(-50, 50), math.random(-50, 50))
@@ -1261,7 +1173,6 @@ local function chaosAttack(target)
     end)
 end
 
--- ฟังก์ชันฟาร์มผู้เล่นแบบโกลาหล
 local function startChaosPlayerFarming()
     if playerFarmConnection then playerFarmConnection:Disconnect() end
     playerFarmConnection = RunService.Heartbeat:Connect(function()
@@ -1278,28 +1189,12 @@ local function startChaosPlayerFarming()
         local targetPlayer = game:GetService("Players"):FindFirstChild(selectedPlayer)
         local target = targetPlayer and targetPlayer.Character
         if target and target:FindFirstChild("HumanoidRootPart") and target:FindFirstChild("Humanoid") and target.Humanoid.Health > 0 then
-            if not invisibilityEnabled then
-                toggleInvisibility(true)
-            end
-
-            -- วาร์ปแบบสุ่มรอบเป้าหมาย
+            if not invisibilityEnabled then toggleInvisibility(true) end
             randomTeleportAroundTarget(target)
             chaosAttack(target)
-
-            -- Webhook Notification
-            if UseWebhook and webhookurl ~= "" then
-                sendWebhookNotification(
-                    "💀 Chaos Hunt: **" .. target.Name .. "**\n" ..
-                    "🌌 Random Warp Distance: **" .. math.floor((LocalPlayer.Character.HumanoidRootPart.Position - target.HumanoidRootPart.Position).Magnitude) .. " studs**\n" ..
-                    "🔥 Status: **Under Assault**",
-                    true, -- isStandFarm
-                    false -- isFarmLevel
-                )
-            end
         else
             local char = waitForCharacter()
             if char and char:FindFirstChild("HumanoidRootPart") then
-                Library:CreateNotification("Target not found or dead! Waiting...", "Warning", 3)
                 local randomOffset = Vector3.new(math.random(-100, 100), 20, math.random(-100, 100))
                 Teleport(char.HumanoidRootPart, char.HumanoidRootPart.CFrame + randomOffset)
                 task.wait(2)
@@ -1308,11 +1203,8 @@ local function startChaosPlayerFarming()
     end)
 end
 
--- UI Elements
 PlayerFarmSection:NewDropdown("Select Player", "Choose your prey", getPlayerList(), function(playerName)
     selectedPlayer = playerName
-    Library:CreateNotification("Target set to: " .. playerName, "Info", 3)
-    if debugMode then print("Selected player: " .. playerName) end
 end)
 
 PlayerFarmSection:NewToggle("Chaos Player Farm", "Toggle chaotic player hunting", function(state)
@@ -1328,7 +1220,7 @@ PlayerFarmSection:NewToggle("Chaos Player Farm", "Toggle chaotic player hunting"
             isPlayerFarming = false
             return
         end
-        Library:CreateNotification("Chaos Player Farm Started - Let the hunt begin!", "Success", 3)
+        Library:CreateNotification("Chaos Player Farm Started", "Success", 3)
         task.spawn(startChaosPlayerFarming)
     else
         Library:CreateNotification("Chaos Player Farm Stopped", "Info", 3)
@@ -1342,17 +1234,14 @@ end)
 
 PlayerFarmSection:NewSlider("Y Offset", "Adjust hover height", -30, 30, function(value)
     Disc = value
-    if debugMode then print("Y Offset set to: " .. Disc) end
 end)
 
 PlayerFarmSection:NewSlider("Z Offset", "Adjust forward/backward distance", -30, 30, function(value)
     Disc3 = value
-    if debugMode then print("Z Offset set to: " .. Disc3) end
 end)
 
 PlayerFarmSection:NewToggle("Use All Skills", "Toggle using all skills", function(state)
     isUsingAllSkills = state
-    if debugMode then print("Use All Skills: " .. tostring(isUsingAllSkills)) end
 end)
 
 PlayerFarmSection:NewButton("Refresh Character", "Reset character state", function()
@@ -1362,7 +1251,6 @@ PlayerFarmSection:NewButton("Refresh Character", "Reset character state", functi
         if bodyGyro then bodyGyro:Destroy() bodyGyro = nil end
         char.Humanoid.Sit = false
         toggleInvisibility(false)
-        if debugMode then print("Character refreshed!") end
     end
 end)
 
@@ -1370,8 +1258,5 @@ PlayerFarmSection:NewButton("Refresh Player List", "Update dropdown with current
     local playerList = getPlayerList()
     PlayerFarmSection:NewDropdown("Select Player", "Choose your prey", playerList, function(playerName)
         selectedPlayer = playerName
-        Library:CreateNotification("Target set to: " .. playerName, "Info", 3)
-        if debugMode then print("Selected player: " .. playerName) end
     end)
-    Library:CreateNotification("Player list refreshed!", "Info", 3)
 end)
