@@ -21,8 +21,7 @@ end
 -- รายการ HWID ที่อนุญาตสำหรับ Key นี้ (เพิ่ม HWID ได้ตามต้องการ)
 local validHwids = {
     "53D920C0-924E-4B61-B243-AF47153FA2C2", -- HWID ของคนแรก
-    "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx", -- HWID ของคนที่สอง (แทนที่ด้วย HWID จริง)
-    "yyyyyyyy-yyyy-yyyy-yyyy-yyyyyyyyyyyy"  -- HWID ของคนที่สาม (แทนที่ด้วย HWID จริง)
+    -- เพิ่ม HWID อื่น ๆ ได้ที่นี่
 }
 
 -- ตรวจสอบ Key
@@ -56,8 +55,12 @@ if keychecked then
             scriptContent = game:HttpGet("https://raw.githubusercontent.com/EVILDARKSIDE111/WW/refs/heads/main/%3A%3E")
         end)
         
-        if httpSuccess and scriptContent and #scriptContent > 0 then
+        if httpSuccess and scriptContent then
             print("ดึงสคริปต์สำเร็จ! ความยาวของโค้ด: " .. #scriptContent .. " ตัวอักษร")
+            if #scriptContent == 0 then
+                warn("ไฟล์สคริปต์ว่างเปล่า! กรุณาตรวจสอบเนื้อหาใน GitHub")
+                return
+            end
             -- รันสคริปต์พร้อมจัดการข้อผิดพลาด
             local scriptFunc, loadErr = loadstring(scriptContent)
             if scriptFunc then
