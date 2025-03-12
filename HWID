@@ -1,5 +1,8 @@
+-- กำหนด Key ชั่วคราว (สามารถเปลี่ยนเป็นการรับจากผู้ใช้ได้)
+_G.Key = "EDUHUB" -- หรือปล่อยให้ผู้ใช้กำหนดผ่าน GUI
+
+-- ตัวแปรสำหรับตรวจสอบ
 local keychecked = false
-local hwid = nil
 local hwidplr = nil
 
 -- ดึง HWID ของผู้เล่นพร้อมจัดการข้อผิดพลาด
@@ -15,12 +18,15 @@ elseif hwidplr == nil then
     return
 end
 
--- กำหนด Key ชั่วคราวเพื่อทดสอบ (ลบหรือแก้ไขตามต้องการ)
-_G.Key = "EDUHUB" -- หรือปล่อยให้ผู้ใช้กำหนดผ่าน GUI
+-- รายการ HWID ที่อนุญาตสำหรับ Key นี้ (เพิ่ม HWID ได้ตามต้องการ)
+local validHwids = {
+    "53D920C0-924E-4B61-B243-AF47153FA2C2", -- HWID ของคนแรก
+    "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx", -- HWID ของคนที่สอง (แทนที่ด้วย HWID จริง)
+    "yyyyyyyy-yyyy-yyyy-yyyy-yyyyyyyyyyyy"  -- HWID ของคนที่สาม (แทนที่ด้วย HWID จริง)
+}
 
--- ตรวจสอบ Key และกำหนด HWID
+-- ตรวจสอบ Key
 if _G.Key == "EDUHUB" then
-    hwid = "53D920C0-924E-4B61-B243-AF47153FA2C2"
     keychecked = true
 else
     warn("Key ไม่ถูกต้อง! Key ที่ป้อน: " .. (tostring(_G.Key) or "nil"))
@@ -28,8 +34,9 @@ end
 
 -- ถ้า Key ผ่านการตรวจสอบ
 if keychecked then
-    if hwidplr == hwid then
-        print("HWID ตรงกัน! กำลังรันสคริปต์... HWID: " .. hwidplr)
+    -- ตรวจสอบว่า HWID อยู่ในรายการที่อนุญาตหรือไม่
+    if table.find(validHwids, hwidplr) then
+        print("Key และ HWID ถูกต้อง! กำลังดึงและรันสคริปต์... HWID: " .. hwidplr)
         
         -- รอให้เกมโหลดเสร็จ
         if not game:IsLoaded() then
@@ -43,38 +50,31 @@ if keychecked then
             return
         end
 
-        -- ทดสอบทั้งสอง URL
-        local urls = {
-            "https://raw.githubusercontent.com/EVILDARKSIDE111/Virus/refs/heads/main/a",
-            "https://raw.githubusercontent.com/EVILDARKSIDE111/WW/refs/heads/main/%3A%3E"
-        }
+        -- ดึงสคริปต์จาก GitHub
+        local scriptContent = nil
+        local httpSuccess, httpErr = pcall(function()
+            scriptContent = game:HttpGet("https://raw.githubusercontent.com/EVILDARKSIDE111/WW/refs/heads/main/%3A%3E")
+        end)
         
-        for _, url in pairs(urls) do
-            local scriptContent = nil
-            local httpSuccess, httpErr = pcall(function()
-                scriptContent = game:HttpGet(url)
-            end)
-            
-            if httpSuccess and scriptContent and #scriptContent > 0 then
-                print("ดึงสคริปต์จาก URL: " .. url .. " สำเร็จ! ความยาวของโค้ด: " .. #scriptContent .. " ตัวอักษร")
-                -- รันสคริปต์พร้อมจัดการข้อผิดพลาด
-                local scriptFunc, loadErr = loadstring(scriptContent)
-                if scriptFunc then
-                    local scriptSuccess, scriptErr = pcall(scriptFunc)
-                    if scriptSuccess then
-                        print("สคริปต์จาก URL: " .. url .. " รันสำเร็จ!")
-                    else
-                        warn("เกิดข้อผิดพลาดในการรันสคริปต์จาก URL: " .. url .. ": " .. scriptErr)
-                    end
+        if httpSuccess and scriptContent and #scriptContent > 0 then
+            print("ดึงสคริปต์สำเร็จ! ความยาวของโค้ด: " .. #scriptContent .. " ตัวอักษร")
+            -- รันสคริปต์พร้อมจัดการข้อผิดพลาด
+            local scriptFunc, loadErr = loadstring(scriptContent)
+            if scriptFunc then
+                local scriptSuccess, scriptErr = pcall(scriptFunc)
+                if scriptSuccess then
+                    print("สคริปต์รันสำเร็จ!")
                 else
-                    warn("ไม่สามารถโหลดสคริปต์จาก URL: " .. url .. ": " .. loadErr)
+                    warn("เกิดข้อผิดพลาดในการรันสคริปต์: " .. scriptErr)
                 end
             else
-                warn("ไม่สามารถดึงสคริปต์จาก URL: " .. url .. ": " .. (httpErr or "ไม่มีข้อมูล"))
+                warn("ไม่สามารถโหลดสคริปต์ได้: " .. loadErr)
             end
+        else
+            warn("ไม่สามารถดึงสคริปต์ได้: " .. (httpErr or "ไม่มีข้อมูล") .. " กรุณาตรวจสอบ URL: https://raw.githubusercontent.com/EVILDARKSIDE111/WW/refs/heads/main/%3A%3E")
         end
     else
-        warn("HWID ไม่ตรงกับที่กำหนด! HWID ผู้เล่น: " .. (hwidplr or "nil") .. " HWID กำหนด: " .. (hwid or "nil"))
+        warn("HWID ไม่ได้รับอนุญาต! HWID ผู้เล่น: " .. (hwidplr or "nil") .. " รายการ HWID ที่อนุญาต: " .. table.concat(validHwids, ", "))
     end
 else
     warn("Key ไม่ผ่านการตรวจสอบ ไม่รันสคริปต์!")
