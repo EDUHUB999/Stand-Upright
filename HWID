@@ -1,0 +1,52 @@
+local keychecked = false
+local hwid = nil
+local hwidplr = nil
+
+-- ดึง HWID ของผู้เล่นพร้อมจัดการข้อผิดพลาด
+local success, err = pcall(function()
+    hwidplr = game:GetService("RbxAnalyticsService"):GetClientId()
+end)
+
+if not success then
+    warn("ไม่สามารถดึง HWID ของผู้เล่นได้: " .. err)
+    return
+end
+
+-- ตรวจสอบ Key และกำหนด HWID
+if _G.Key == "01wap" then
+    hwid = "bdec0239-cba9-403d-8676-a2d5af8d366c"
+    keychecked = true
+elseif _G.Key == "02xyz" then -- Key ใหม่สำหรับ HWID ใหม่
+    hwid = "53D920C0-924E-4B61-B243-AF47153FA2C2"
+    keychecked = true
+else
+    warn("Key ไม่ถูกต้อง!")
+end
+
+-- ถ้า Key ผ่านการตรวจสอบ
+if keychecked then
+    if hwidplr == hwid then
+        print("HWID ตรงกัน! กำลังรันสคริปต์...")
+        
+        -- รอให้เกมโหลดเสร็จ
+        if not game:IsLoaded() then
+            print("กำลังรอเกมโหลด...")
+            game.Loaded:Wait()
+        end
+        
+        -- รันสคริปต์พร้อมจัดการข้อผิดพลาด
+        local scriptSuccess, scriptErr = pcall(function()
+            loadstring(game:HttpGet("https://raw.githubusercontent.com/EVILDARKSIDEUPV1/scriptobf/main/p"))()
+        end)
+        
+        if scriptSuccess then
+            print("สคริปต์รันสำเร็จ!")
+        else
+            warn("เกิดข้อผิดพลาดในการรันสคริปต์: " .. scriptErr)
+        end
+    else
+        warn("HWID ไม่ตรงกับที่กำหนด!")
+    end
+else
+    warn("Key ไม่ผ่านการตรวจสอบ ไม่รันสคริปต์!")
+end
