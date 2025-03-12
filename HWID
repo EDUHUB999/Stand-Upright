@@ -16,10 +16,7 @@ elseif hwidplr == nil then
 end
 
 -- ตรวจสอบ Key และกำหนด HWID
-if _G.Key == "EDUHUB_Beta" then
-    hwid = "53D920C0-924E-4B61-B243-AF47153FA2C2"
-    keychecked = true
-elseif _G.Key == "EDUHUB" then
+if _G.Key == "EDUHUB" then
     hwid = "53D920C0-924E-4B61-B243-AF47153FA2C2"
     keychecked = true
 else
@@ -28,11 +25,6 @@ end
 
 -- ถ้า Key ผ่านการตรวจสอบ
 if keychecked then
-    if hwid == "รอใส่" then
-        warn("กรุณาเปลี่ยน 'รอใส่' เป็น HWID จริงก่อนรัน!")
-        return
-    end
-
     if hwidplr == hwid then
         print("HWID ตรงกัน! กำลังรันสคริปต์... HWID: " .. hwidplr)
         
