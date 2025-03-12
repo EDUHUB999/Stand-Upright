@@ -17,7 +17,7 @@ end
 
 -- ตรวจสอบ Key และกำหนด HWID
 if _G.Key == "EDUHUB_Beta" then
-    hwid = "รอใส่" -- เปลี่ยนเป็น HWID จริงเมื่อพร้อม
+    hwid = "53D920C0-924E-4B61-B243-AF47153FA2C2"
     keychecked = true
 elseif _G.Key == "EDUHUB" then
     hwid = "53D920C0-924E-4B61-B243-AF47153FA2C2"
@@ -42,6 +42,12 @@ if keychecked then
             game.Loaded:Wait()
         end
         
+        -- ตรวจสอบว่า HttpGet มีอยู่และใช้งานได้
+        if not game.HttpGet then
+            warn("game:HttpGet ไม่สามารถใช้งานได้! กรุณาเปิดใช้งาน HTTP Requests หรือรันใน LocalScript")
+            return
+        end
+
         -- ตรวจสอบการเชื่อมต่อและดึงสคริปต์
         local scriptContent = nil
         local httpSuccess, httpErr = pcall(function()
@@ -49,6 +55,7 @@ if keychecked then
         end)
         
         if httpSuccess and scriptContent then
+            print("ดึงสคริปต์สำเร็จ! ความยาวของโค้ด: " .. #scriptContent .. " ตัวอักษร")
             -- รันสคริปต์พร้อมจัดการข้อผิดพลาด
             local scriptFunc, loadErr = loadstring(scriptContent)
             if scriptFunc then
