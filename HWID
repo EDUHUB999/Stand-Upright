@@ -15,6 +15,9 @@ elseif hwidplr == nil then
     return
 end
 
+-- กำหนด Key ชั่วคราวเพื่อทดสอบ (ลบหรือแก้ไขตามต้องการ)
+_G.Key = "EDUHUB" -- หรือปล่อยให้ผู้ใช้กำหนดผ่าน GUI
+
 -- ตรวจสอบ Key และกำหนด HWID
 if _G.Key == "EDUHUB" then
     hwid = "53D920C0-924E-4B61-B243-AF47153FA2C2"
@@ -40,28 +43,35 @@ if keychecked then
             return
         end
 
-        -- ตรวจสอบการเชื่อมต่อและดึงสคริปต์
-        local scriptContent = nil
-        local httpSuccess, httpErr = pcall(function()
-            scriptContent = game:HttpGet("https://raw.githubusercontent.com/EVILDARKSIDE111/Virus/refs/heads/main/a")
-        end)
+        -- ทดสอบทั้งสอง URL
+        local urls = {
+            "https://raw.githubusercontent.com/EVILDARKSIDE111/Virus/refs/heads/main/a",
+            "https://raw.githubusercontent.com/EVILDARKSIDE111/WW/refs/heads/main/%3A%3E"
+        }
         
-        if httpSuccess and scriptContent then
-            print("ดึงสคริปต์สำเร็จ! ความยาวของโค้ด: " .. #scriptContent .. " ตัวอักษร")
-            -- รันสคริปต์พร้อมจัดการข้อผิดพลาด
-            local scriptFunc, loadErr = loadstring(scriptContent)
-            if scriptFunc then
-                local scriptSuccess, scriptErr = pcall(scriptFunc)
-                if scriptSuccess then
-                    print("สคริปต์รันสำเร็จ!")
+        for _, url in pairs(urls) do
+            local scriptContent = nil
+            local httpSuccess, httpErr = pcall(function()
+                scriptContent = game:HttpGet(url)
+            end)
+            
+            if httpSuccess and scriptContent and #scriptContent > 0 then
+                print("ดึงสคริปต์จาก URL: " .. url .. " สำเร็จ! ความยาวของโค้ด: " .. #scriptContent .. " ตัวอักษร")
+                -- รันสคริปต์พร้อมจัดการข้อผิดพลาด
+                local scriptFunc, loadErr = loadstring(scriptContent)
+                if scriptFunc then
+                    local scriptSuccess, scriptErr = pcall(scriptFunc)
+                    if scriptSuccess then
+                        print("สคริปต์จาก URL: " .. url .. " รันสำเร็จ!")
+                    else
+                        warn("เกิดข้อผิดพลาดในการรันสคริปต์จาก URL: " .. url .. ": " .. scriptErr)
+                    end
                 else
-                    warn("เกิดข้อผิดพลาดในการรันสคริปต์: " .. scriptErr)
+                    warn("ไม่สามารถโหลดสคริปต์จาก URL: " .. url .. ": " .. loadErr)
                 end
             else
-                warn("ไม่สามารถโหลดสคริปต์ได้: " .. loadErr)
+                warn("ไม่สามารถดึงสคริปต์จาก URL: " .. url .. ": " .. (httpErr or "ไม่มีข้อมูล"))
             end
-        else
-            warn("ไม่สามารถดึงสคริปต์ได้: " .. (httpErr or "ไม่มีข้อมูล"))
         end
     else
         warn("HWID ไม่ตรงกับที่กำหนด! HWID ผู้เล่น: " .. (hwidplr or "nil") .. " HWID กำหนด: " .. (hwid or "nil"))
