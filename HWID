@@ -13,10 +13,10 @@ if not success then
 end
 
 -- ตรวจสอบ Key และกำหนด HWID
-if _G.Key == "01wap" then
-    hwid = "bdec0239-cba9-403d-8676-a2d5af8d366c"
+if _G.Key == "EDUHUB_Beta" then
+    hwid = "รอใส่"
     keychecked = true
-elseif _G.Key == "02xyz" then -- Key ใหม่สำหรับ HWID ใหม่
+elseif _G.Key == "EDUHUB" then -- Key ใหม่สำหรับ HWID ใหม่
     hwid = "53D920C0-924E-4B61-B243-AF47153FA2C2"
     keychecked = true
 else
