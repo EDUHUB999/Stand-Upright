@@ -544,7 +544,12 @@ end)
 
 local StorageSection = StandTab:NewSection("Open Stand Storage")
 StorageSection:NewButton("Open Stand Storage", "Click to Open", function()
-    fireServerSafe(Workspace.Map.NPCs.admpn.Done)
+    local success, err = pcall(function()
+        fireServerSafe(Workspace.Map.NPCs.admpn.Done)
+    end)
+    if not success then
+        warn("Failed to open Stand Storage: " .. err)
+    end
 end)
 
 local ItemSection = StandTab:NewSection("Use Item Farm Stand")
@@ -560,36 +565,52 @@ ItemSection:NewButton("Use Kars Mask", "Set to Kars Mask", function()
 end)
 
 local StandSection = StandTab:NewSection("Stand")
-local Added, Whitelisted, Blacklisted = {}, {}, {
-    "Rapture", "True Star Platinum: The World", "Diego's The World: High Voltage", "True Star Platinum: The World",
-    "Premier Macho", "Stab Platinum: The World", "King Crimson Requiem", "Silver Chariot Requiem",
-    "Eclispe Dio's The World Over Heaven", "Headless Star Platinum", "Tusk Act 2", "Tusk Act 3",
-    "Putrid Whine", "Star Platinum The World: Requiem", "Tusk Act 4", "Star Platinum OVA Over Heaven",
-    "Star Platinum The World", "Star Platinum Over Heaven", "Crazy Diamond: Over Heaven", "The World's Greatest High",
-    "C-Moon", "Shadow The World", "Main In Heaven", "Silver Chariot Requiem OVA", "The World OVA Over Heaven",
-    "Kars", "Cauldron Black", "Stab Platinum", "Dio's The World Over Heaven", "The World Over Heaven",
-    "Halal Goku", "Gold Experience Requiem Requiem", "Gold Experience Requiem", "Killer Queen Bites The Dust",
-    "Celebratory Soft & Wet", "Anubis", "The World Alternate Universe: Executioner", "The World Alternate Universe: Electrocutioner",
-    "King Crimson: Requiem", "Brainy's The World", "TAMIH", "ABDSTW", "Made In Hell", "Jotaro's Star Platinum Over Heaven",
-    "The World Over Heaven OVA", "Golden Experience: Reality Bender", "Ultimate Life Form", "Ben", "Made In Heaven",
-    "Snowglobe Made In Heaven", "Premier Macho Requiem", "Halal Vegeta", "HalalGoku", "IBM", "Festive The World",
-    "The Universe", "Dirty Deeds Done Dirt Cheap: Love Train"
+local Added, Whitelisted = {}, {}
+
+-- รายชื่อ Stand ที่ไม่ซ้ำกันจากที่คุณให้มา
+local standList = {
+    "Weather Report", "Rapture", "Ultimate Life Form", "Soft And Wet", "Eclispe Dio's The World Over Heaven",
+    "Magicians's Red", "Headless Star Platinum", "Star Platinum The World: Requiem", "Festive The World",
+    "Snowglobe Made In Heaven", "Hierophant Green Requiem", "Tusk Act 2", "Dirty Deeds Done Dirt Cheap",
+    "The World", "The Hand", "White Snake", "Diver Down", "Tusk Act 4", "Crazy Diamond", "Tusk Act 3",
+    "Star Platinum OVA Over Heaven", "Sticky Fingers", "Star Platinum Stone Ocean", "Hierophant Green",
+    "Star Platinum Over Heaven", "Golden Experience", "Crazy Diamond: Over Heaven", "The World's Greatest High",
+    "Made In Heaven", "C-Moon", "Shadow The World", "The World Alternate Universe", "Dirty Deeds Done Dirt Cheap: Love Train",
+    "The Hand Requiem", "Ben", "The Emperor", "Stab Platinum: The World", "Premier Macho", "Cream", "IBM",
+    "Silver Chariot Requiem OVA", "The World OVA Over Heaven", "Kars", "Star Platinum The World", "The Universe",
+    "Cauldron Black", "The World Over Heaven", "Dio's The World Over Heaven", "Stab Platinum", "Diego's The World",
+    "Halal Goku", "Star Platinum", "Star Platinum OVA", "Silver Chariot Requiem", "The World OVA", "Silver Chariot",
+    "Gold Experience Requiem Requiem", "Premier Macho Requiem", "Gold Experience Requiem", "Stone Free", "King Crimson",
+    "Tusk Act 1", "Aerosmith", "Killer Queen Bites The Dust", "Purple Smoke", "Silver Chariot OVA", "Killer Queen",
+    "Celebratory Soft & Wet", "Putrid Whine", "Anubis", "The World Alternate Universe: Executioner",
+    "The World Alternate Universe: Electrocutioner", "Jotaro's Star Platinum", "Halal Vegeta", "King Crimson Requiem",
+    "Brainy's The World", "True Star Platinum: The World", "TAMIH", "ABDSTW", "Diego's The World: High Voltage",
+    "Dio's The World", "Jotaro's Star Platinum Over Heaven", "PackageLink (No Value)", "Made In Hell",
+    "The Universe Over Heaven", "Clown Crimson: Requiem", "Skrunkly", "Ultimate Cauldron", "Headless The World",
+    "Legacy The Hand", "The Universe: Over Heaven", "Golden Experience: Reality Bender"
 }
-for _, v in ipairs(ReplicatedStorage.StandNameConvert:GetChildren()) do
-    if v:IsA("StringValue") and not table.find(Added, v.Value) and not table.find(Blacklisted, v.Value) then
-        table.insert(Added, v.Value)
-        StandSection:NewToggle(v.Value, "Toggle Stand", function(state)
-            if state then
-                if not table.find(Whitelisted, v.Value) then
-                    table.insert(Whitelisted, v.Value)
+
+-- เพิ่ม Stand เข้าไปใน UI
+for _, stand in ipairs(standList) do
+    if not table.find(Added, stand) then
+        table.insert(Added, stand)
+        local success, err = pcall(function()
+            StandSection:NewToggle(stand, "Toggle Stand", function(state)
+                if state then
+                    if not table.find(Whitelisted, stand) then
+                        table.insert(Whitelisted, stand)
+                    end
+                else
+                    local index = table.find(Whitelisted, stand)
+                    if index then
+                        table.remove(Whitelisted, index)
+                    end
                 end
-            else
-                local index = table.find(Whitelisted, v.Value)
-                if index then
-                    table.remove(Whitelisted, index)
-                end
-            end
-        end, false)
+            end, false)
+        end)
+        if not success then
+            warn("Failed to create toggle for " .. stand .. ": " .. err)
+        end
     end
 end
 
@@ -603,8 +624,9 @@ for _, attr in ipairs(attributes) do
                 table.insert(WhitelistedAttributes, attr)
             end
         else
-            if table.find(WhitelistedAttributes, attr) then
-                table.remove(WhitelistedAttributes, table.find(WhitelistedAttributes, attr))
+            local index = table.find(WhitelistedAttributes, attr)
+            if index then
+                table.remove(WhitelistedAttributes, index)
             end
         end
     end, false)
@@ -613,8 +635,14 @@ end
 local StartFarmSection = StandTab:NewSection("Start Farm")
 
 local function CheckInfo()
-    local success, playerGui = pcall(function() return LocalPlayer.PlayerGui.PlayerGUI.ingame.Stats.StandName end)
-    local PlayerStand = success and playerGui:FindFirstChild("Name_") and playerGui.Name_.TextLabel.Text or "None"
+    local success, playerGui = pcall(function() 
+        return LocalPlayer.PlayerGui.PlayerGUI.ingame.Stats.StandName 
+    end)
+    if not success or not playerGui then
+        warn("Failed to access StandName GUI")
+        return false
+    end
+    local PlayerStand = playerGui:FindFirstChild("Name_") and playerGui.Name_.TextLabel.Text or "None"
     local PlayerAttri = LocalPlayer.Data.Attri.Value or "None"
     local standMatch = CheckStand and table.find(Whitelisted, PlayerStand)
     local attriMatch = CheckAttri and table.find(WhitelistedAttributes, PlayerAttri)
@@ -631,16 +659,22 @@ local function CheckInfo()
 end
 
 local function useRokakaka(char)
+    if not char then return end
     local rokakaka = LocalPlayer.Backpack:FindFirstChild("Rokakaka")
     if rokakaka then
-        char.Humanoid:EquipTool(rokakaka)
-        task.wait(0.2)
-        if char:FindFirstChild("Rokakaka") then
-            char.Rokakaka:Activate()
-            fireServerSafe(ReplicatedStorage.Events.UseItem)
-            local prompt = char.Rokakaka:FindFirstChildOfClass("ProximityPrompt")
-            if prompt then fireproximityprompt(prompt, 1) end
-            repeat task.wait(0.5) until LocalPlayer.Data.Stand.Value == "None" or not getgenv().BeginFarm
+        local success, err = pcall(function()
+            char.Humanoid:EquipTool(rokakaka)
+            task.wait(0.2)
+            if char:FindFirstChild("Rokakaka") then
+                char.Rokakaka:Activate()
+                fireServerSafe(ReplicatedStorage.Events.UseItem)
+                local prompt = char.Rokakaka:FindFirstChildOfClass("ProximityPrompt")
+                if prompt then fireproximityprompt(prompt, 1) end
+                repeat task.wait(0.5) until LocalPlayer.Data.Stand.Value == "None" or not getgenv().BeginFarm
+            end
+        end)
+        if not success then
+            warn("Failed to use Rokakaka: " .. err)
         end
     else
         Library:CreateNotification("Error: No Rokakaka in Backpack!", "Error", 5)
@@ -649,7 +683,10 @@ end
 
 local function CycleStand()
     local char = waitForCharacter()
-    if not char then return end
+    if not char then 
+        warn("Character not found")
+        return 
+    end
     local stand = LocalPlayer.Data.Stand.Value or "None"
     local attriValue = LocalPlayer.Data.Attri.Value or "None"
 
@@ -659,12 +696,17 @@ local function CycleStand()
             Library:CreateNotification("Error: No " .. ArrowToUse .. " in Backpack!", "Error", 5)
             return
         end
-        char.Humanoid:EquipTool(arrow)
-        task.wait(0.2)
-        if char:FindFirstChild(ArrowToUse) then
-            char[ArrowToUse]:Activate()
-            fireServerSafe(ReplicatedStorage.Events.UseItem)
-            repeat task.wait(0.5) until LocalPlayer.Data.Stand.Value ~= "None" or not getgenv().BeginFarm
+        local success, err = pcall(function()
+            char.Humanoid:EquipTool(arrow)
+            task.wait(0.2)
+            if char:FindFirstChild(ArrowToUse) then
+                char[ArrowToUse]:Activate()
+                fireServerSafe(ReplicatedStorage.Events.UseItem)
+                repeat task.wait(0.5) until LocalPlayer.Data.Stand.Value ~= "None" or not getgenv().BeginFarm
+            end
+        end)
+        if not success then
+            warn("Failed to use " .. ArrowToUse .. ": " .. err)
         end
     elseif CheckStand and table.find(Whitelisted, stand) then
         if CheckAttri and not table.find(WhitelistedAttributes, attriValue) then
@@ -673,9 +715,15 @@ local function CycleStand()
             local stored = false
             for i = 1, 2 do
                 if LocalPlayer.Data["Slot" .. i .. "Stand"].Value == "None" then
-                    fireServerSafe(ReplicatedStorage.Events.SwitchStand, "Slot" .. i)
-                    repeat task.wait(0.5) until LocalPlayer.Data.Stand.Value == "None" or not getgenv().BeginFarm
-                    if LocalPlayer.Data.Stand.Value == "None" then stored = true end
+                    local success, err = pcall(function()
+                        fireServerSafe(ReplicatedStorage.Events.SwitchStand, "Slot" .. i)
+                        repeat task.wait(0.5) until LocalPlayer.Data.Stand.Value == "None" or not getgenv().BeginFarm
+                    end)
+                    if success and LocalPlayer.Data.Stand.Value == "None" then 
+                        stored = true 
+                    else
+                        warn("Failed to switch stand to Slot" .. i .. ": " .. (err or "unknown error"))
+                    end
                     break
                 end
             end
@@ -709,7 +757,13 @@ StartFarmSection:NewToggle("Start Stand Farm", "Toggle Stand Farm", function(sta
         Library:CreateNotification("Stand Farm Started", "Info", 3)
         task.spawn(function()
             while getgenv().BeginFarm do
-                CycleStand()
+                local success, err = pcall(CycleStand)
+                if not success then
+                    warn("Stand Farm Error: " .. err)
+                    Library:CreateNotification("Stand Farm Error: " .. err, "Error", 5)
+                    getgenv().BeginFarm = false
+                    break
+                end
                 task.wait(0.5)
             end
             Library:CreateNotification("Stand Farm Stopped", "Info", 3)
