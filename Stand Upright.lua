@@ -66,7 +66,7 @@ local function sendWebhookNotification(message, isStandFarm, isFarmLevel)
     if not UseWebhook or webhookurl == "" or (not isStandFarm and not isFarmLevel) then
         return false
     end
-    local msg = type(message) == "table" and table.concat(message, "\n") or tostring(message)
+    local msg = type(message) == "table" and table.concat(message, "\\n") or tostring(message)
     local success, errorMsg = pcall(function()
         local payload = {
             ["content"] = msg,
@@ -127,17 +127,16 @@ local bodyPosition = nil
 local bodyGyro = nil
 local isUsingAllSkills = false
 
--- ฟังก์ชันสร้างและจัดการ BodyPosition และ BodyGyro
+-- ฟังก์ชันสร้าง BodyPosition และ BodyGyro
 local function createBodyControls(hrp)
-    if not hrp then return end
-    if not bodyPosition or not bodyPosition.Parent then
+    if not bodyPosition then
         bodyPosition = Instance.new("BodyPosition")
         bodyPosition.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
         bodyPosition.P = 10000
         bodyPosition.D = 1000
         bodyPosition.Parent = hrp
     end
-    if not bodyGyro or not bodyGyro.Parent then
+    if not bodyGyro then
         bodyGyro = Instance.new("BodyGyro")
         bodyGyro.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
         bodyGyro.P = 5000
@@ -146,14 +145,8 @@ local function createBodyControls(hrp)
     end
 end
 
--- ฟังก์ชันเรียก RemoteEvent อย่างปลอดภัยพร้อม cooldown
-local lastFireTime = 0
+-- ฟังก์ชันเรียก RemoteEvent อย่างปลอดภัย
 local function fireServerSafe(remote, arg)
-    local currentTime = tick()
-    if currentTime - lastFireTime < 0.1 then -- จำกัดการเรียกทุก 0.1 วินาที
-        return false
-    end
-    lastFireTime = currentTime
     local success = pcall(function()
         if arg ~= nil then
             remote:FireServer(arg)
@@ -164,23 +157,24 @@ local function fireServerSafe(remote, arg)
     return success
 end
 
--- ฟังก์ชันใช้สกิลทั้งหมด (ลดการเรียกซ้ำ)
+-- ฟังก์ชันใช้สกิลทั้งหมด
 local function useAllSkills(char)
-    if not char or not char:FindFirstChild("StandEvents") then return end
-    for _, event in pairs(char.StandEvents:GetChildren()) do
-        if not table.find({"Block", "Quote", "Pose", "Summon", "Heal", "Jump", "TogglePilot"}, event.Name) then
-            fireServerSafe(event, true)
-            task.wait(0.2) -- เพิ่มดีเลย์เพื่อลดภาระ
+    if char and char:FindFirstChild("StandEvents") then
+        for _, event in pairs(char.StandEvents:GetChildren()) do
+            if not table.find({"Block", "Quote", "Pose", "Summon", "Heal", "Jump", "TogglePilot"}, event.Name) then
+                fireServerSafe(event, true)
+                task.wait(0.05)
+            end
         end
     end
 end
 
--- ฟังก์ชันหามอนสเตอร์ที่ใกล้ที่สุด (จำกัดการคำนวณ)
+-- ฟังก์ชันหามอนสเตอร์ที่ใกล้ที่สุด
 local function findNearestMonster(monsterName)
     local closestMonster = nil
     local shortestDistance = math.huge
     for _, mob in pairs(Workspace.Living:GetChildren()) do
-        if mob.Name == monsterName and mob:FindFirstChild("Humanoid") and mob.Humanoid.Health > 0 and mob:FindFirstChild("PrimaryPart") then
+        if mob.Name == monsterName and mob:FindFirstChild("Humanoid") and mob.Humanoid.Health > 0 then
             local distance = (LocalPlayer.Character.HumanoidRootPart.Position - mob.PrimaryPart.Position).Magnitude
             if distance < shortestDistance then
                 shortestDistance = distance
@@ -193,23 +187,24 @@ end
 
 -- ฟังก์ชันวาร์ปและล็อกตำแหน่ง
 local function teleportToTarget(target)
-    if not target or not target.PrimaryPart then return end
-    local char = waitForCharacter()
-    if not char then return end
-    local hrp = char.HumanoidRootPart
-    
-    local targetPos = target.PrimaryPart.Position
-    local hoverPos = targetPos + Vector3.new(0, Disc, Disc3)
-    local targetCFrame = CFrame.lookAt(hoverPos, targetPos)
-    
-    createBodyControls(hrp)
-    bodyPosition.Position = hoverPos
-    bodyGyro.CFrame = targetCFrame
-    
-    local distance = (hrp.Position - hoverPos).Magnitude
-    if distance > 5 then
-        Teleport(hrp, targetCFrame)
-        char.Humanoid.Sit = true
+    if target and target.PrimaryPart then
+        local char = waitForCharacter()
+        if not char then return end
+        local hrp = char.HumanoidRootPart
+        
+        local targetPos = target.PrimaryPart.Position
+        local hoverPos = targetPos + Vector3.new(0, Disc, Disc3)
+        local targetCFrame = CFrame.lookAt(hoverPos, targetPos)
+        
+        createBodyControls(hrp)
+        bodyPosition.Position = hoverPos
+        bodyGyro.CFrame = targetCFrame
+        
+        local distance = (hrp.Position - hoverPos).Magnitude
+        if distance > 5 then
+            Teleport(hrp, targetCFrame)
+            char.Humanoid.Sit = true
+        end
     end
 end
 
@@ -243,7 +238,7 @@ local questData = {
 
 local function startFarming()
     if connection then connection:Disconnect() end
-    connection = RunService.Stepped:Connect(function() -- เปลี่ยนจาก Heartbeat เป็น Stepped
+    connection = RunService.Heartbeat:Connect(function()
         if not isFarming then
             connection:Disconnect()
             if bodyPosition then bodyPosition:Destroy() bodyPosition = nil end
@@ -283,8 +278,8 @@ local function startFarming()
                 local resetPosition = char.HumanoidRootPart.CFrame + Vector3.new(0, 10, 400)
                 Teleport(char.HumanoidRootPart, resetPosition)
             end
+            task.wait(1)
         end
-        task.wait(0.5) -- เพิ่มดีเลย์เพื่อลดการทำงานต่อเฟรม
     end)
 end
 
@@ -358,12 +353,12 @@ local levelMap = {
     {minLevel = 126, maxLevel = 150, name = "Jotaro Part 4 [Lvl. 125+]"},
     {minLevel = 151, maxLevel = 200, name = "Kakyoin [Lvl. 150+]"},
     {minLevel = 201, maxLevel = 275, name = "Sewer Vampire [Lvl. 200+]"},
-    {minLevel = 276, maxLevel = math.huge, name = "Pillerman [Lvl. 275+]"} -- แก้ไขจาก "Возможность" เป็น "minLevel"
+    {minLevel = 276, maxLevel = math.huge, name = "Pillerman [Lvl. 275+]"}
 }
 
 local function startLevelFarming()
     if levelConnection then levelConnection:Disconnect() end
-    levelConnection = RunService.Stepped:Connect(function()
+    levelConnection = RunService.Heartbeat:Connect(function()
         if not isLevelFarming then
             levelConnection:Disconnect()
             if bodyPosition then bodyPosition:Destroy() bodyPosition = nil end
@@ -412,9 +407,11 @@ local function startLevelFarming()
                     local resetPosition = char.HumanoidRootPart.CFrame + Vector3.new(0, 10, 400)
                     Teleport(char.HumanoidRootPart, resetPosition)
                 end
+                task.wait(1)
             end
+        else
+            task.wait(1)
         end
-        task.wait(0.5) -- เพิ่มดีเลย์
     end)
 end
 
@@ -448,7 +445,7 @@ local bossList = {
 
 local function startBossFarming()
     if bossConnection then bossConnection:Disconnect() end
-    bossConnection = RunService.Stepped:Connect(function()
+    bossConnection = RunService.Heartbeat:Connect(function()
         if not isBossFarming then
             bossConnection:Disconnect()
             if bodyPosition then bodyPosition:Destroy() bodyPosition = nil end
@@ -478,8 +475,8 @@ local function startBossFarming()
             if bodyGyro then bodyGyro:Destroy() bodyGyro = nil end
             local char = waitForCharacter()
             if char then char.Humanoid.Sit = false end
+            task.wait(1)
         end
-        task.wait(0.5) -- เพิ่มดีเลย์
     end)
 end
 
@@ -510,98 +507,101 @@ BossSection:NewToggle("Auto Farm Boss", "Toggle boss farming", function(state)
 end)
 
 -- Tab: Stand Farm
-local StandTab = Window:NewTab("Stand Farm")
-local StandCheckSection = StandTab:NewSection("Check Stand-Attri")
+local StandFarmTab = Window:NewTab("Stand Farm")
+local StandSection = StandFarmTab:NewSection("Select Stands")
+local AttriSection = StandFarmTab:NewSection("Select Attributes")
+local ControlSection = StandFarmTab:NewSection("Farm Control")
+
+-- ตัวแปรสำหรับ Stand และ Attribute
+local Added, Whitelisted, Blacklisted = {}, {}, {}
+local WhitelistedAttributes = {}
+local attributes = {"None", "Godly", "Daemon", "GlassCannon", "Invincible", "Tragic", "Scourge", "Hacker", "Legendary"}
+local ArrowToUse = "Stand Arrow"
 local CheckStand, CheckAttri = false, false
 
-StandCheckSection:NewToggle("Stand Check", "Toggle Stand Check", function(state) 
-    CheckStand = state 
-end)
-StandCheckSection:NewToggle("Attribute Check", "Toggle Attribute Check", function(state) 
-    CheckAttri = state 
-end)
-
-local StorageSection = StandTab:NewSection("Open Stand Storage")
-StorageSection:NewButton("Open Stand Storage", "Click to Open", function()
-    local success, err = pcall(function()
-        fireServerSafe(Workspace.Map.NPCs.admpn.Done)
-    end)
-    if not success then
-        warn("Failed to open Stand Storage: " .. err)
+-- ฟังก์ชันลบช่องวรรคและแปลงเป็นตัวพิมพ์ใหญ่
+local function removeSpaces(str)
+    if typeof(str) == "string" then
+        return str:gsub("%s+", ""):upper()
     end
-end)
+    return "NONE"
+end
 
-local ItemSection = StandTab:NewSection("Use Item Farm Stand")
-local ArrowToUse = "Stand Arrow"
-ItemSection:NewButton("Use Stand Arrows", "Set to Stand Arrow", function()
-    ArrowToUse = "Stand Arrow"
-end)
-ItemSection:NewButton("Use Charged Arrows", "Set to Charged Arrow", function()
-    ArrowToUse = "Charged Arrow"
-end)
-ItemSection:NewButton("Use Kars Mask", "Set to Kars Mask", function()
-    ArrowToUse = "Kars Mask"
-end)
-
-local StandSection = StandTab:NewSection("Stand")
-local Added, Whitelisted = {}, {}
-
-local standList = {
-    "Weather Report", "Rapture", "Ultimate Life Form", "Soft And Wet", "Eclispe Dio's The World Over Heaven",
-    "Magicians's Red", "Headless Star Platinum", "Star Platinum The World: Requiem", "Festive The World",
-    "Snowglobe Made In Heaven", "Hierophant Green Requiem", "Tusk Act 2", "Dirty Deeds Done Dirt Cheap",
-    "The World", "The Hand", "White Snake", "Diver Down", "Tusk Act 4", "Crazy Diamond", "Tusk Act 3",
-    "Star Platinum OVA Over Heaven", "Sticky Fingers", "Star Platinum Stone Ocean", "Hierophant Green",
-    "Star Platinum Over Heaven", "Golden Experience", "Crazy Diamond: Over Heaven", "The World's Greatest High",
-    "Made In Heaven", "C-Moon", "Shadow The World", "The World Alternate Universe", "Dirty Deeds Done Dirt Cheap: Love Train",
-    "The Hand Requiem", "Ben", "The Emperor", "Stab Platinum: The World", "Premier Macho", "Cream", "IBM",
-    "Silver Chariot Requiem OVA", "The World OVA Over Heaven", "Kars", "Star Platinum The World", "The Universe",
-    "Cauldron Black", "The World Over Heaven", "Dio's The World Over Heaven", "Stab Platinum", "Diego's The World",
-    "Halal Goku", "Star Platinum", "Star Platinum OVA", "Silver Chariot Requiem", "The World OVA", "Silver Chariot",
-    "Gold Experience Requiem Requiem", "Premier Macho Requiem", "Gold Experience Requiem", "Stone Free", "King Crimson",
-    "Tusk Act 1", "Aerosmith", "Killer Queen Bites The Dust", "Purple Smoke", "Silver Chariot OVA", "Killer Queen",
-    "Celebratory Soft & Wet", "Putrid Whine", "Anubis", "The World Alternate Universe: Executioner",
-    "The World Alternate Universe: Electrocutioner", "Jotaro's Star Platinum", "Halal Vegeta", "King Crimson Requiem",
-    "Brainy's The World", "True Star Platinum: The World", "TAMIH", "ABDSTW", "Diego's The World: High Voltage",
-    "Dio's The World", "Jotaro's Star Platinum Over Heaven", "PackageLink (No Value)", "Made In Hell",
-    "The Universe Over Heaven", "Clown Crimson: Requiem", "Skrunkly", "Ultimate Cauldron", "Headless The World",
-    "Legacy The Hand", "The Universe: Over Heaven", "Golden Experience: Reality Bender"
-}
-
-for _, stand in ipairs(standList) do
-    if not table.find(Added, stand) then
-        table.insert(Added, stand)
-        local success, err = pcall(function()
-            StandSection:NewToggle(stand, "Toggle Stand", function(state)
-                if state then
-                    if not table.find(Whitelisted, stand) then
-                        table.insert(Whitelisted, stand)
-                    end
-                else
-                    local index = table.find(Whitelisted, stand)
-                    if index then
-                        table.remove(Whitelisted, index)
-                    end
-                end
-            end, false)
-        end)
-        if not success then
-            warn("Failed to create toggle for " .. stand .. ": " .. err)
-        end
+-- ฟังก์ชันแสดงแจ้งเตือน (รองรับ Kavo หรือ fallback)
+local function showNotification(message, type, duration)
+    if typeof(message) ~= "string" then message = tostring(message or "Unknown") end
+    if Library and Library.CreateNotification then
+        pcall(function() Library:CreateNotification(message, type, duration) end)
+    elseif Library and Library.Notify then
+        pcall(function() Library:Notify(message, duration, type) end)
+    else
+        warn("Fallback notification: " .. message)
     end
 end
 
-local AttriSection = StandTab:NewSection("Attri")
-local WhitelistedAttributes = {}
-local attributes = {"None", "Godly", "Daemon", "Glass Cannon", "Invincible", "Tragic", "Scourge", "Hacker", "Legendary"}
+-- ฟังก์ชันค้นหาในตารางอย่างปลอดภัย
+local function safeTableFind(tbl, value)
+    if not tbl or type(tbl) ~= "table" or #tbl == 0 then
+        return nil
+    end
+    return table.find(tbl, value)
+end
+
+-- รายการ Stand
+local standList = {
+    "WeatherReport", "Rapture", "UltimateLifeForm", "SoftAndWet", "EclispeDiosTheWorldOverHeaven",
+    "MagiciansRed", "HeadlessStarPlatinum", "StarPlatinumTheWorldRequiem", "FestiveTheWorld",
+    "SnowglobeMadeInHeaven", "HierophantGreenRequiem", "TuskAct2", "DirtyDeedsDoneDirtCheap",
+    "TheWorld", "TheHand", "WhiteSnake", "DiverDown", "TuskAct4", "CrazyDiamond", "TuskAct3",
+    "StarPlatinumOVAOverHeaven", "StickyFingers", "StarPlatinumStoneOcean", "HierophantGreen",
+    "StarPlatinumOverHeaven", "GoldenExperience", "CrazyDiamondOverHeaven", "TheWorldsGreatestHigh",
+    "MadeInHeaven", "CMoon", "ShadowTheWorld", "TheWorldAlternateUniverse",
+    "DirtyDeedsDoneDirtCheapLoveTrain", "TheHandRequiem", "Ben", "TheEmperor", "StabPlatinumTheWorld",
+    "PremierMacho", "Cream", "IBM", "SilverChariotRequiemOVA", "TheWorldOVAOverHeaven", "Kars",
+    "StarPlatinumTheWorld", "TheUniverse", "CauldronBlack", "TheWorldOverHeaven",
+    "DiosTheWorldOverHeaven", "StabPlatinum", "DiegosTheWorld", "HalalGoku", "StarPlatinum",
+    "StarPlatinumOVA", "SilverChariotRequiem", "TheWorldOVA", "SilverChariot", "GoldExperienceRequiemRequiem",
+    "PremierMachoRequiem", "GoldExperienceRequiem", "StoneFree", "KingCrimson", "TuskAct1", "Aerosmith",
+    "KillerQueenBitesTheDust", "PurpleSmoke", "SilverChariotOVA", "KillerQueen", "CelebratorySoftWet",
+    "PutridWhine", "Anubis", "TheWorldAlternateUniverseExecutioner", "StarPlatinumTheWorld",
+    "TheWorldAlternateUniverseElectrocutioner", "JotarosStarPlatinum", "HalalVegeta", "KingCrimsonRequiem",
+    "BrainysTheWorld", "TrueStarPlatinumTheWorld", "TAMIH", "ABDSTW", "DiegosTheWorldHighVoltage",
+    "DiosTheWorld", "JotarosStarPlatinumOverHeaven", "MadeInHell", "TheUniverseOverHeaven",
+    "ClownCrimsonRequiem", "Skrunkly", "UltimateCauldron", "HeadlessTheWorld", "LegacyTheHand",
+    "TheUniverseOverHeaven", "GoldenExperienceRealityBender"
+}
+
+Blacklisted = {
+    "PackageLink", "WeatherReport"
+}
+
+for _, standName in ipairs(standList) do
+    if not safeTableFind(Blacklisted, removeSpaces(standName)) then
+        local displayName = standName:gsub("([A-Z])", " %1"):gsub("^%s+", "")
+        StandSection:NewToggle(displayName, "Toggle Stand", function(state)
+            local normalizedName = removeSpaces(standName)
+            if state then
+                if not safeTableFind(Whitelisted, normalizedName) then
+                    table.insert(Whitelisted, normalizedName)
+                end
+            else
+                local index = safeTableFind(Whitelisted, normalizedName)
+                if index then
+                    table.remove(Whitelisted, index)
+                end
+            end
+        end, false)
+    end
+end
+
 for _, attr in ipairs(attributes) do
     AttriSection:NewToggle(attr, "Toggle Attribute", function(state)
         if state then
-            if not table.find(WhitelistedAttributes, attr) then
+            if not safeTableFind(WhitelistedAttributes, attr) then
                 table.insert(WhitelistedAttributes, attr)
             end
         else
-            local index = table.find(WhitelistedAttributes, attr)
+            local index = safeTableFind(WhitelistedAttributes, attr)
             if index then
                 table.remove(WhitelistedAttributes, index)
             end
@@ -609,144 +609,134 @@ for _, attr in ipairs(attributes) do
     end, false)
 end
 
-local StartFarmSection = StandTab:NewSection("Start Farm")
-
 local function CheckInfo()
-    local success, playerGui = pcall(function() 
-        return LocalPlayer.PlayerGui.PlayerGUI.ingame.Stats.StandName 
-    end)
-    if not success or not playerGui then
-        warn("Failed to access StandName GUI")
-        return false
-    end
-    local PlayerStand = playerGui:FindFirstChild("Name_") and playerGui.Name_.TextLabel.Text or "None"
-    local PlayerAttri = LocalPlayer.Data.Attri.Value or "None"
-    local standMatch = CheckStand and table.find(Whitelisted, PlayerStand)
-    local attriMatch = CheckAttri and table.find(WhitelistedAttributes, PlayerAttri)
+    local stand = LocalPlayer.Data and LocalPlayer.Data.Stand and LocalPlayer.Data.Stand.Value or "None"
+    local PlayerAttri = LocalPlayer.Data and LocalPlayer.Data.Attri and LocalPlayer.Data.Attri.Value or "None"
+    stand = removeSpaces(stand)
+    PlayerAttri = tostring(PlayerAttri or "None")
 
-    if CheckStand and CheckAttri then
-        return standMatch and attriMatch
-    elseif CheckStand then
-        return standMatch
-    elseif CheckAttri then
-        return attriMatch
-    else
-        return false
+    local standMatch = false
+    if CheckStand and Whitelisted and type(Whitelisted) == "table" and #Whitelisted > 0 then
+        standMatch = safeTableFind(Whitelisted, stand) ~= nil
     end
+
+    local attriMatch = false
+    if CheckAttri and WhitelistedAttributes and type(WhitelistedAttributes) == "table" and #WhitelistedAttributes > 0 then
+        attriMatch = safeTableFind(WhitelistedAttributes, PlayerAttri) ~= nil
+    end
+
+    return (CheckStand and CheckAttri and standMatch and attriMatch) or
+           (CheckStand and standMatch) or
+           (CheckAttri and attriMatch) or false
 end
 
 local function useRokakaka(char)
     if not char then return end
     local rokakaka = LocalPlayer.Backpack:FindFirstChild("Rokakaka")
     if rokakaka then
-        local success, err = pcall(function()
-            char.Humanoid:EquipTool(rokakaka)
-            task.wait(0.2)
-            if char:FindFirstChild("Rokakaka") then
-                char.Rokakaka:Activate()
-                fireServerSafe(ReplicatedStorage.Events.UseItem)
-                local prompt = char.Rokakaka:FindFirstChildOfClass("ProximityPrompt")
-                if prompt then fireproximityprompt(prompt, 1) end
-                repeat task.wait(0.5) until LocalPlayer.Data.Stand.Value == "None" or not getgenv().BeginFarm
-            end
-        end)
-        if not success then
-            warn("Failed to use Rokakaka: " .. err)
+        char.Humanoid:EquipTool(rokakaka)
+        task.wait(0.2)
+        if char:FindFirstChild("Rokakaka") then
+            char.Rokakaka:Activate()
+            fireServerSafe(ReplicatedStorage.Events.UseItem)
+            local prompt = char.Rokakaka:FindFirstChildOfClass("ProximityPrompt")
+            if prompt then fireproximityprompt(prompt, 1) end
+            repeat task.wait(0.5) until (LocalPlayer.Data and LocalPlayer.Data.Stand and LocalPlayer.Data.Stand.Value == "None") or not getgenv().BeginFarm
         end
     else
-        Library:CreateNotification("Error: No Rokakaka in Backpack!", "Error", 5)
+        showNotification("Error: No Rokakaka in Backpack!", "Error", 5)
     end
 end
 
 local function CycleStand()
     local char = waitForCharacter()
-    if not char then 
-        warn("Character not found")
-        return 
-    end
-    local stand = LocalPlayer.Data.Stand.Value or "None"
-    local attriValue = LocalPlayer.Data.Attri.Value or "None"
+    if not char then return end
+    local stand = LocalPlayer.Data and LocalPlayer.Data.Stand and LocalPlayer.Data.Stand.Value or "None"
+    local attriValue = LocalPlayer.Data and LocalPlayer.Data.Attri and LocalPlayer.Data.Attri.Value or "None"
+    stand = removeSpaces(stand)
+    attriValue = tostring(attriValue or "None")
 
-    if stand == "None" then
+    if stand == "NONE" then
         local arrow = LocalPlayer.Backpack:FindFirstChild(ArrowToUse)
         if not arrow then
-            Library:CreateNotification("Error: No " .. ArrowToUse .. " in Backpack!", "Error", 5)
+            showNotification("Error: No " .. ArrowToUse .. " in Backpack!", "Error", 5)
             return
         end
-        local success, err = pcall(function()
-            char.Humanoid:EquipTool(arrow)
-            task.wait(0.2)
-            if char:FindFirstChild(ArrowToUse) then
-                char[ArrowToUse]:Activate()
-                fireServerSafe(ReplicatedStorage.Events.UseItem)
-                repeat task.wait(0.5) until LocalPlayer.Data.Stand.Value ~= "None" or not getgenv().BeginFarm
-            end
-        end)
-        if not success then
-            warn("Failed to use " .. ArrowToUse .. ": " .. err)
+        char.Humanoid:EquipTool(arrow)
+        task.wait(0.2)
+        if char:FindFirstChild(ArrowToUse) then
+            char[ArrowToUse]:Activate()
+            fireServerSafe(ReplicatedStorage.Events.UseItem)
+            repeat task.wait(0.5) until (LocalPlayer.Data and LocalPlayer.Data.Stand and LocalPlayer.Data.Stand.Value ~= "None") or not getgenv().BeginFarm
         end
-    elseif CheckStand and table.find(Whitelisted, stand) then
-        if CheckAttri and not table.find(WhitelistedAttributes, attriValue) then
-            useRokakaka(char)
-        elseif CheckInfo() then
-            local stored = false
-            for i = 1, 2 do
-                if LocalPlayer.Data["Slot" .. i .. "Stand"].Value == "None" then
-                    local success, err = pcall(function()
-                        fireServerSafe(ReplicatedStorage.Events.SwitchStand, "Slot" .. i)
-                        repeat task.wait(0.5) until LocalPlayer.Data.Stand.Value == "None" or not getgenv().BeginFarm
-                    end)
-                    if success and LocalPlayer.Data.Stand.Value == "None" then 
-                        stored = true 
-                    else
-                        warn("Failed to switch stand to Slot" .. i .. ": " .. (err or "unknown error"))
-                    end
-                    break
-                end
+    elseif CheckInfo() then
+        local stored = false
+        for i = 1, 2 do
+            if LocalPlayer.Data and LocalPlayer.Data["Slot" .. i .. "Stand"] and LocalPlayer.Data["Slot" .. i .. "Stand"].Value == "None" then
+                fireServerSafe(ReplicatedStorage.Events.SwitchStand, "Slot" .. i)
+                repeat task.wait(0.5) until (LocalPlayer.Data and LocalPlayer.Data.Stand and LocalPlayer.Data.Stand.Value == "None") or not getgenv().BeginFarm
+                if LocalPlayer.Data and LocalPlayer.Data.Stand and LocalPlayer.Data.Stand.Value == "None" then stored = true end
+                break
             end
-            if not stored then
-                Library:CreateNotification("Storage Full: No empty slots available!", "Error", 5)
-            end
+        end
+        if not stored then
+            showNotification("Storage Full: No empty slots available!", "Error", 5)
         end
     else
         useRokakaka(char)
     end
 end
 
-StartFarmSection:NewToggle("Start Stand Farm", "Toggle Stand Farm", function(state)
+ControlSection:NewButton("Use Stand Arrows", "Set to Stand Arrow", function()
+    ArrowToUse = "Stand Arrow"
+end)
+ControlSection:NewButton("Use Charged Arrows", "Set to Charged Arrow", function()
+    ArrowToUse = "Charged Arrow"
+end)
+ControlSection:NewButton("Use Kars Mask", "Set to Kars Mask", function()
+    ArrowToUse = "Kars Mask"
+end)
+
+ControlSection:NewToggle("Stand Check", "Toggle Stand Check", function(state)
+    CheckStand = state
+end)
+
+ControlSection:NewToggle("Attribute Check", "Toggle Attribute Check", function(state)
+    CheckAttri = state
+end)
+
+ControlSection:NewButton("Open Stand Storage", "Click to Open", function()
+    fireServerSafe(Workspace.Map.NPCs.admpn.Done)
+end)
+
+ControlSection:NewToggle("Start Stand Farm", "Toggle Stand Farm", function(state)
     getgenv().BeginFarm = state
     if getgenv().BeginFarm then
         if not CheckStand and not CheckAttri then
-            Library:CreateNotification("Please enable Stand Check or Attribute Check!", "Error", 5)
+            showNotification("Please enable Stand Check or Attribute Check!", "Error", 5)
             getgenv().BeginFarm = false
             return
         end
-        if #Whitelisted == 0 and CheckStand then
-            Library:CreateNotification("No Stands selected in Whitelist!", "Error", 5)
+        if CheckStand and (not Whitelisted or #Whitelisted == 0) then
+            showNotification("No Stands selected in Whitelist! Please select at least one Stand.", "Error", 5)
             getgenv().BeginFarm = false
             return
         end
-        if #WhitelistedAttributes == 0 and CheckAttri then
-            Library:CreateNotification("No Attributes selected in Whitelist!", "Error", 5)
+        if CheckAttri and (not WhitelistedAttributes or #WhitelistedAttributes == 0) then
+            showNotification("No Attributes selected in Whitelist!", "Error", 5)
             getgenv().BeginFarm = false
             return
         end
-        Library:CreateNotification("Stand Farm Started", "Info", 3)
+        showNotification("Stand Farm Started", "Info", 3)
         task.spawn(function()
             while getgenv().BeginFarm do
-                local success, err = pcall(CycleStand)
-                if not success then
-                    warn("Stand Farm Error: " .. err)
-                    Library:CreateNotification("Stand Farm Error: " .. err, "Error", 5)
-                    getgenv().BeginFarm = false
-                    break
-                end
-                task.wait(1) -- เพิ่มดีเลย์เป็น 1 วินาที
+                CycleStand()
+                task.wait(1)
             end
-            Library:CreateNotification("Stand Farm Stopped", "Info", 3)
+            showNotification("Stand Farm Stopped", "Info", 3)
         end)
     else
-        Library:CreateNotification("Stand Farm Stopped", "Info", 3)
+        showNotification("Stand Farm Stopped", "Info", 3)
     end
 end)
 
@@ -780,7 +770,6 @@ for _, item in ipairs(buyItems) do
     BuySection:NewButton(item[1], "Buy " .. item[1], function()
         for i = 1, Amount do
             ReplicatedStorage.Events.BuyItem:FireServer(item[2], item[3])
-            task.wait(0.1) -- เพิ่มดีเลย์เพื่อลดการเรียกซ้ำ
         end
     end)
 end
@@ -798,7 +787,7 @@ local function antiAFK()
                 game:GetService("VirtualInputManager"):SendKeyEvent(true, "W", false, game)
                 task.wait(0.1)
                 game:GetService("VirtualInputManager"):SendKeyEvent(false, "W", false, game)
-                task.wait(300) -- รักษาความถี่ไว้ที่ 5 นาที
+                task.wait(300)
             else
                 task.wait(5)
             end
@@ -949,7 +938,7 @@ DungeonSection:NewToggle("Auto Farm Dungeon", "Toggle dungeon farming", function
         currentDistance = dungeonSettings[ChDun].baseDistance
         Library:CreateNotification("Dungeon Farm Started", "Info", 3)
         task.spawn(function()
-            dungeonConnection = RunService.Stepped:Connect(function()
+            dungeonConnection = RunService.Heartbeat:Connect(function()
                 if not isDungeonFarming then
                     if dungeonConnection then dungeonConnection:Disconnect() end
                     if bodyPosition then bodyPosition:Destroy() bodyPosition = nil end
@@ -1012,7 +1001,7 @@ DungeonSection:NewToggle("Auto Farm Dungeon", "Toggle dungeon farming", function
                         end
                     end
                 end
-                task.wait(0.5) -- เพิ่มดีเลย์
+                task.wait(0.1)
             end)
         end)
     end
@@ -1065,11 +1054,15 @@ ItemSection:NewToggle("Farm Items", "Collect nearby items", function(state)
         return
     end
 
-    task.spawn(function()
-        if itemConnection then itemConnection:Disconnect() end
-        itemConnection = RunService.Stepped:Connect(function()
+    if itemConnection then
+        itemConnection:Disconnect()
+    end
+
+    if isItemFarming then
+        Library:CreateNotification("Item Farm Started", "Info", 3)
+        itemConnection = RunService.Heartbeat:Connect(function()
             if not isItemFarming or not _G.On then
-                itemConnection:Disconnect()
+                if itemConnection then itemConnection:Disconnect() end
                 local char = waitForCharacter()
                 if char then char.Humanoid.Sit = false end
                 Library:CreateNotification("Item Farm Stopped", "Info", 3)
@@ -1083,17 +1076,51 @@ ItemSection:NewToggle("Farm Items", "Collect nearby items", function(state)
             end
             local hrp = char.HumanoidRootPart
 
-            for _, v in pairs(Workspace.Vfx:GetChildren()) do -- เปลี่ยน GetDescendants เป็น GetChildren เพื่อลดการคำนวณ
-                if v.Name == "Handle" and hrp then
-                    safeTeleport(hrp, v.CFrame)
-                elseif v.Name == "ProximityPrompt" then
-                    fireproximityprompt(v, 20)
+            for _, v in pairs(Workspace.Vfx:GetDescendants()) do
+                if v:IsA("BasePart") and (v.Name == "Handle" or v.Name:find("Item")) and v.Parent then
+                    local prompt = v.Parent:FindFirstChild("ProximityPrompt") or v:FindFirstChild("ProximityPrompt")
+                    if prompt then
+                        local distance = (hrp.Position - v.Position).Magnitude
+                        if distance > 5 then
+                            safeTeleport(hrp, CFrame.new(v.Position + Vector3.new(0, 3, 0)))
+                            Library:CreateNotification("Teleporting to item at " .. tostring(v.Position), "Info", 2)
+                            task.wait(0.5)
+                        end
+                        if distance <= 5 then
+                            fireproximityprompt(prompt, 20)
+                            Library:CreateNotification("Picking up item at " .. tostring(v.Position), "Success", 2)
+                            task.wait(0.3)
+                        end
+                    end
                 end
-                task.wait(0.2) -- เพิ่มดีเลย์
             end
-            task.wait(1) -- เพิ่มดีเลย์รวม
+
+            if Workspace:FindFirstChild("Items") then
+                for _, item in pairs(Workspace.Items:GetChildren()) do
+                    if item:IsA("BasePart") and item:FindFirstChild("ProximityPrompt") then
+                        local distance = (hrp.Position - item.Position).Magnitude
+                        if distance > 5 then
+                            safeTeleport(hrp, CFrame.new(item.Position + Vector3.new(0, 3, 0)))
+                            Library:CreateNotification("Teleporting to item at " .. tostring(item.Position), "Info", 2)
+                            task.wait(0.5)
+                        end
+                        if distance <= 5 then
+                            fireproximityprompt(item.ProximityPrompt, 20)
+                            Library:CreateNotification("Picking up item at " .. tostring(item.Position), "Success", 2)
+                            task.wait(0.3)
+                        end
+                    end
+                end
+            end
+
+            task.wait(0.5)
         end)
-    end)
+    else
+        if itemConnection then itemConnection:Disconnect() end
+        local char = waitForCharacter()
+        if char then char.Humanoid.Sit = false end
+        Library:CreateNotification("Item Farm Stopped", "Info", 3)
+    end
 end)
 
 -- Tab: Player Farm
@@ -1119,7 +1146,7 @@ local function toggleInvisibility(state)
     if not char then return end
     
     if state then
-        for _, part in pairs(char:GetChildren()) do -- เปลี่ยนจาก GetDescendants เป็น GetChildren
+        for _, part in pairs(char:GetDescendants()) do
             if part:IsA("BasePart") then
                 part.Transparency = 1
                 part.CanCollide = false
@@ -1137,7 +1164,7 @@ local function toggleInvisibility(state)
             char.Stand:Destroy()
         end
     else
-        for _, part in pairs(char:GetChildren()) do
+        for _, part in pairs(char:GetDescendants()) do
             if part:IsA("BasePart") then
                 part.Transparency = 0
                 part.CanCollide = true
@@ -1177,7 +1204,10 @@ local function chaosAttack(target)
 
     if char:FindFirstChild("StandEvents") then
         if not LocalPlayer.PlayerGui.CDgui.fortnite:FindFirstChild("Punch") then
-            fireServerSafe(char.StandEvents.M1)
+            for i = 1, 10 do
+                fireServerSafe(char.StandEvents.M1)
+                task.wait(0.02)
+            end
         end
         if isUsingAllSkills then
             useAllSkills(char)
@@ -1201,7 +1231,7 @@ end
 
 local function startChaosPlayerFarming()
     if playerFarmConnection then playerFarmConnection:Disconnect() end
-    playerFarmConnection = RunService.Stepped:Connect(function()
+    playerFarmConnection = RunService.Heartbeat:Connect(function()
         if not isPlayerFarming then
             playerFarmConnection:Disconnect()
             if bodyPosition then bodyPosition:Destroy() bodyPosition = nil end
@@ -1223,9 +1253,9 @@ local function startChaosPlayerFarming()
             if char and char:FindFirstChild("HumanoidRootPart") then
                 local randomOffset = Vector3.new(math.random(-100, 100), 20, math.random(-100, 100))
                 Teleport(char.HumanoidRootPart, char.HumanoidRootPart.CFrame + randomOffset)
+                task.wait(2)
             end
         end
-        task.wait(1) -- เพิ่มดีเลย์
     end)
 end
 
