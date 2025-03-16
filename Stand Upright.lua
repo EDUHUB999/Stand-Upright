@@ -60,29 +60,6 @@ local HttpService = game:GetService("HttpService")
 getgenv().BeginFarm = false
 local debugMode = false
 
--- ฟังก์ชัน Webhook Notification
-local webhookurl, UseWebhook = "", false
-local function sendWebhookNotification(message, isStandFarm, isFarmLevel)
-    if not UseWebhook or webhookurl == "" or (not isStandFarm and not isFarmLevel) then
-        return false
-    end
-    local msg = type(message) == "table" and table.concat(message, "\\n") or tostring(message)
-    local success, errorMsg = pcall(function()
-        local payload = {
-            ["content"] = msg,
-            ["username"] = "EDU HUB Bot",
-            ["avatar_url"] = "https://www.roblox.com/asset/?id=12514663645"
-        }
-        local jsonPayload = HttpService:JSONEncode(payload)
-        HttpService:PostAsync(webhookurl, jsonPayload, Enum.HttpContentType.ApplicationJson)
-    end)
-    if not success then
-        warn("Webhook Error: " .. errorMsg)
-        Library:CreateNotification("Webhook Error: " .. errorMsg, "Error", 5)
-    end
-    return success
-end
-
 -- ฟังก์ชัน Teleport
 local function Teleport(part, cframe)
     if part and part:IsA("BasePart") then
@@ -813,7 +790,6 @@ SettingsSection:NewKeybind("Toggle UI", "Show/hide UI", Enum.KeyCode.RightContro
 end)
 
 -- Tab: Dungeon Farm
-
 local DungeonTab = Window:NewTab("Dungeon Farm")
 local DungeonSection = DungeonTab:NewSection("Auto Farm Dungeon Settings")
 
@@ -1126,4 +1102,3 @@ ItemSection:NewToggle("Farm Items", "Collect nearby items", function(state)
         Library:CreateNotification("Item Farm Stopped", "Info", 3)
     end
 end)
-
