@@ -1,28 +1,28 @@
--- โหลด Fluent UI Library และ Addons
 local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
 local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/SaveManager.lua"))()
 local InterfaceManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/InterfaceManager.lua"))()
 
--- สร้าง Window
+-- สร้าง Window ขนาดใหญ่ขึ้น
 local Window = Fluent:CreateWindow({
-    Title = "EDU HUB : Stand Upright : Rebooted",
-    TabWidth = 160,
-    Size = UDim2.fromOffset(580, 460),
+    Title = "EDU HUB : Stand Upright Rebooted",
+    SubTitle = "v3.0",
+    TabWidth = 140,
+    Size = UDim2.fromOffset(450, 350), -- ขนาดใหญ่ขึ้น
     Acrylic = true,
     Theme = "Amethyst",
     MinimizeKey = Enum.KeyCode.RightControl
 })
 
--- สร้าง Tabs
+-- Tabs พร้อมไอคอนครบทุก Tab
 local Tabs = {
-    FarmingQuests = Window:AddTab({ Title = "Farming & Quests", Icon = "" }),
-    AutoFarmLevels = Window:AddTab({ Title = "Auto Farm All Levels", Icon = "" }),
-    BossFarm = Window:AddTab({ Title = "Boss Farm", Icon = "" }),
-    StandFarm = Window:AddTab({ Title = "Stand Farm", Icon = "" }),
-    AutoBuy = Window:AddTab({ Title = "Auto Buy Item", Icon = "" }),
-    DungeonFarm = Window:AddTab({ Title = "Dungeon Farm", Icon = "" }),
-    ItemFarm = Window:AddTab({ Title = "Item Farm", Icon = "" }),
-    Settings = Window:AddTab({ Title = "Settings", Icon = "settings" })
+    FarmingQuests = Window:AddTab({ Title = "Farming & Quests", Icon = "sword" }),
+    AutoFarmLevels = Window:AddTab({ Title = "Auto Farm", Icon = "binary" }),
+    BossFarm = Window:AddTab({ Title = "Boss Farm", Icon = "skull" }),
+    StandFarm = Window:AddTab({ Title = "Stand Farm", Icon = "apple" }),
+    AutoBuy = Window:AddTab({ Title = "Shop", Icon = "shopping-cart" }),
+    DungeonFarm = Window:AddTab({ Title = "Dungeon Farm", Icon = "swords" }),
+    ItemFarm = Window:AddTab({ Title = "Items Farm", Icon = "box" }),
+    Settings = Window:AddTab({ Title = "Settings", Icon = "server-cog" })
 }
 
 local Options = Fluent.Options
@@ -48,9 +48,7 @@ local function waitForCharacter()
     local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
     local hrp = char:WaitForChild("HumanoidRootPart", 5)
     local humanoid = char:WaitForChild("Humanoid", 5)
-    if not hrp or not humanoid then
-        return nil
-    end
+    if not hrp or not humanoid then return nil end
     return char
 end
 
@@ -69,8 +67,8 @@ Teleport(hrp, CFrame.new(-5234.27051, -449.936951, -3766.07373, 0.958408535, 1.3
 task.wait(0.6)
 Teleport(hrp, originalPosition)
 
-local Disc = 7
-local Disc3 = 0
+local Disc = 8.5
+local Disc3 = 1
 local bodyPosition = nil
 local bodyGyro = nil
 local isUsingAllSkills = false
@@ -94,36 +92,36 @@ end
 
 local function fireServerSafe(remote, arg)
     local success = pcall(function()
-        if arg ~= nil then
-            remote:FireServer(arg)
-        else
-            remote:FireServer()
-        end
+        if arg ~= nil then remote:FireServer(arg) else remote:FireServer() end
     end)
     return success
 end
 
 local function useAllSkills(char)
-    if char and char:FindFirstChild("StandEvents") then
-        for _, event in pairs(char.StandEvents:GetChildren()) do
-            if not table.find({"Block", "Quote", "Pose", "Summon", "Heal", "Jump", "TogglePilot"}, event.Name) then
-                fireServerSafe(event, true)
-                task.wait(0.05)
-            end
+    if not char or not char:FindFirstChild("StandEvents") then return end
+    local m1Event = char.StandEvents:FindFirstChild("M1")
+    if m1Event and not LocalPlayer.PlayerGui.CDgui.fortnite:FindFirstChild("Punch") then
+        fireServerSafe(m1Event, true)
+        task.wait(0.05)
+    end
+    for _, event in pairs(char.StandEvents:GetChildren()) do
+        if event:IsA("RemoteEvent") and event.Name ~= "M1" and not table.find({"Block", "Quote", "Pose", "Summon", "Heal", "Jump", "TogglePilot"}, event.Name) then
+            fireServerSafe(event, true)
+            task.wait(0.05)
         end
     end
 end
 
 local function useSelectedSkills(char, selectedSkills)
-    if char and char:FindFirstChild("StandEvents") and selectedSkills then
-        for skill, enabled in pairs(selectedSkills) do
-            if enabled then
-                local skillEvent = char.StandEvents:FindFirstChild(skill)
-                if skillEvent then
-                    fireServerSafe(skillEvent, true)
-                    task.wait(0.05)
-                end
-            end
+    if not char or not char:FindFirstChild("StandEvents") or not selectedSkills then return end
+    if selectedSkills["M1"] and char.StandEvents:FindFirstChild("M1") and not LocalPlayer.PlayerGui.CDgui.fortnite:FindFirstChild("Punch") then
+        fireServerSafe(char.StandEvents.M1, true)
+        task.wait(0.05)
+    end
+    for skill, enabled in pairs(selectedSkills) do
+        if enabled and skill ~= "M1" then
+            local skillEvent = char.StandEvents:FindFirstChild(skill)
+            if skillEvent then fireServerSafe(skillEvent, true) task.wait(0.05) end
         end
     end
 end
@@ -133,7 +131,7 @@ local function getPlayerSkills()
     local skillList = {"None"}
     if char and char:FindFirstChild("StandEvents") then
         for _, event in pairs(char.StandEvents:GetChildren()) do
-            if not table.find({"Block", "Quote", "Pose", "Summon", "Heal", "Jump", "TogglePilot"}, event.Name) then
+            if event:IsA("RemoteEvent") and not table.find({"Block", "Quote", "Pose", "Summon", "Heal", "Jump", "TogglePilot"}, event.Name) then
                 table.insert(skillList, event.Name)
             end
         end
@@ -162,15 +160,12 @@ local function teleportToTarget(target)
         local char = waitForCharacter()
         if not char then return end
         local hrp = char.HumanoidRootPart
-        
         local targetPos = target.PrimaryPart.Position
         local hoverPos = targetPos + Vector3.new(0, Disc, Disc3)
         local targetCFrame = CFrame.lookAt(hoverPos, targetPos)
-        
         createBodyControls(hrp)
         bodyPosition.Position = hoverPos
         bodyGyro.CFrame = targetCFrame
-        
         local currentTime = tick()
         local distance = (hrp.Position - hoverPos).Magnitude
         if distance > 5 and currentTime - lastTeleportTime > 0.5 then
@@ -186,7 +181,7 @@ local isFarming = false
 local selectedQuest = "Bad Gi [Lvl. 1+]"
 local connection
 local lastMonsterCount = 0
-local monsterRespawnDistance = 80
+local monsterRespawnDistance = 30
 
 local questList = {
     "Bad Gi [Lvl. 1+]", "Scary Monster [Lvl. 10+]", "Giorno Giovanna [Lvl. 20+]", "Rker Dummy [Lvl. 30+]",
@@ -247,10 +242,10 @@ local function startFarming()
                 if char:FindFirstChild("Aura") and not char.Aura.Value then
                     fireServerSafe(char.StandEvents.Summon)
                 end
-                if char:FindFirstChild("StandEvents") and not LocalPlayer.PlayerGui.CDgui.fortnite:FindFirstChild("Punch") then
-                    fireServerSafe(char.StandEvents.M1)
-                end
-                if isUsingAllSkills then
+                local selectedSkills = Options.SelectedSkills and Options.SelectedSkills.Value or {}
+                if next(selectedSkills) then
+                    useSelectedSkills(char, selectedSkills)
+                elseif isUsingAllSkills then
                     useAllSkills(char)
                 end
             end
@@ -268,20 +263,16 @@ local function startFarming()
                 task.wait(2)
             elseif currentMonsterCount > 0 then
                 target = findNearestMonster(quest.monster)
-                if target then
-                    teleportToTarget(target)
-                end
+                if target then teleportToTarget(target) end
             end
         end
     end)
 end
 
-Tabs.FarmingQuests:AddToggle("AutoFarmQuests", {Title = "Auto Farm & Quests", Description = "Toggle auto farming and quests", Default = false})
+Tabs.FarmingQuests:AddToggle("AutoFarmQuests", {Title = "Auto Farm", Icon = "play", Default = false})
 Options.AutoFarmQuests:OnChanged(function()
     isFarming = Options.AutoFarmQuests.Value
-    if isFarming then
-        task.spawn(startFarming)
-    else
+    if isFarming then task.spawn(startFarming) else
         if bodyPosition then bodyPosition:Destroy() bodyPosition = nil end
         if bodyGyro then bodyGyro:Destroy() bodyGyro = nil end
         local char = waitForCharacter()
@@ -289,27 +280,16 @@ Options.AutoFarmQuests:OnChanged(function()
     end
 end)
 
-Tabs.FarmingQuests:AddDropdown("SelectQuest", {Title = "Select Quest/Monster", Values = questList, Default = 1})
-Options.SelectQuest:OnChanged(function()
-    selectedQuest = Options.SelectQuest.Value
-end)
+Tabs.FarmingQuests:AddDropdown("SelectQuest", {Title = "Quest", Icon = "list", Values = questList, Default = 1})
+Options.SelectQuest:OnChanged(function() selectedQuest = Options.SelectQuest.Value end)
 
-Tabs.FarmingQuests:AddSlider("YOffset", {Title = "Y Offset", Description = "Adjust hover height", Default = 7, Min = -30, Max = 30, Rounding = 1})
-Options.YOffset:OnChanged(function(Value)
-    Disc = Value
-end)
+Tabs.FarmingQuests:AddSlider("YOffset", {Title = "Y Offset", Icon = "move-up", Default = 8.5, Min = -30, Max = 30, Rounding = 1})
+Options.YOffset:OnChanged(function(Value) Disc = Value end)
 
-Tabs.FarmingQuests:AddSlider("ZOffset", {Title = "Z Offset", Description = "Adjust forward/backward distance", Default = 0, Min = -30, Max = 30, Rounding = 1})
-Options.ZOffset:OnChanged(function(Value)
-    Disc3 = Value
-end)
+Tabs.FarmingQuests:AddSlider("ZOffset", {Title = "Z Offset", Icon = "move-right", Default = 1, Min = -30, Max = 30, Rounding = 1})
+Options.ZOffset:OnChanged(function(Value) Disc3 = Value end)
 
-Tabs.FarmingQuests:AddToggle("UseAllSkills", {Title = "Use All Skills", Description = "Toggle using all skills", Default = false})
-Options.UseAllSkills:OnChanged(function()
-    isUsingAllSkills = Options.UseAllSkills.Value
-end)
-
-Tabs.FarmingQuests:AddButton({Title = "Refresh Character", Description = "Reset character state", Callback = function()
+Tabs.FarmingQuests:AddButton({Title = "Refresh", Icon = "refresh-cw", Callback = function()
     local char = waitForCharacter()
     if char then
         if bodyPosition then bodyPosition:Destroy() bodyPosition = nil end
@@ -352,8 +332,23 @@ local levelMap = {
     {minLevel = 276, maxLevel = math.huge, name = "Pillerman [Lvl. 275+]"}
 }
 
+local function findMultipleMonsters(monsterName, maxTargets)
+    local targets = {}
+    for _, mob in pairs(Workspace.Living:GetChildren()) do
+        if mob.Name == monsterName and mob:FindFirstChild("Humanoid") and mob.Humanoid.Health > 0 then
+            table.insert(targets, mob)
+            if #targets >= maxTargets then break end
+        end
+    end
+    return targets
+end
+
 local function startLevelFarming()
     if levelConnection then levelConnection:Disconnect() end
+    local lastSwitchTime = 0
+    local currentTargetIndex = 1
+    local switchInterval = 0.2
+    
     levelConnection = RunService.Heartbeat:Connect(function()
         if not isLevelFarming then
             levelConnection:Disconnect()
@@ -363,6 +358,9 @@ local function startLevelFarming()
             if char then char.Humanoid.Sit = false end
             return
         end
+        
+        local char = waitForCharacter()
+        if not char then return end
         
         local level = LocalPlayer.Data.Level.Value or 1
         local matchedSetting = nil
@@ -374,23 +372,26 @@ local function startLevelFarming()
         end
         
         if matchedSetting then
-            local target = findNearestMonster(matchedSetting[1])
-            if target then
-                teleportToTarget(target)
-                local npc = Workspace.Map.NPCs:FindFirstChild(matchedSetting[2])
-                if npc then
-                    fireServerSafe(npc.Done)
-                    fireServerSafe(npc.QuestDone)
+            local targets = findMultipleMonsters(matchedSetting[1], 5)
+            if #targets > 0 then
+                local currentTime = tick()
+                if currentTime - lastSwitchTime >= switchInterval then
+                    currentTargetIndex = (currentTargetIndex % #targets) + 1
+                    lastSwitchTime = currentTime
                 end
-                local char = waitForCharacter()
-                if char then
+                
+                local target = targets[currentTargetIndex]
+                if target then
+                    teleportToTarget(target)
+                    local npc = Workspace.Map.NPCs:FindFirstChild(matchedSetting[2])
+                    if npc then
+                        fireServerSafe(npc.Done)
+                        fireServerSafe(npc.QuestDone)
+                    end
                     if char:FindFirstChild("Aura") and not char.Aura.Value then
                         fireServerSafe(char.StandEvents.Summon)
                     end
-                    if char:FindFirstChild("StandEvents") and not LocalPlayer.PlayerGui.CDgui.fortnite:FindFirstChild("Punch") then
-                        fireServerSafe(char.StandEvents.M1)
-                    end
-                    local selectedSkills = Options.SelectSkills and Options.SelectSkills.Value or {}
+                    local selectedSkills = Options.SelectedSkills and Options.SelectedSkills.Value or {}
                     if next(selectedSkills) then
                         useSelectedSkills(char, selectedSkills)
                     elseif isUsingAllSkills then
@@ -400,12 +401,9 @@ local function startLevelFarming()
             else
                 if bodyPosition then bodyPosition:Destroy() bodyPosition = nil end
                 if bodyGyro then bodyGyro:Destroy() bodyGyro = nil end
-                local char = waitForCharacter()
-                if char then
-                    char.Humanoid.Sit = false
-                    local resetPosition = char.HumanoidRootPart.CFrame + Vector3.new(0, 3, 200)
-                    Teleport(char.HumanoidRootPart, resetPosition)
-                end
+                char.Humanoid.Sit = false
+                local resetPosition = char.HumanoidRootPart.CFrame + Vector3.new(0, 3, 70)
+                Teleport(char.HumanoidRootPart, resetPosition)
                 task.wait(1)
             end
         else
@@ -414,7 +412,7 @@ local function startLevelFarming()
     end)
 end
 
-Tabs.AutoFarmLevels:AddToggle("AutoFarmLevels", {Title = "Auto Farm All Levels", Description = "Farm based on your level", Default = false})
+Tabs.AutoFarmLevels:AddToggle("AutoFarmLevels", {Title = "Auto Farm All Levels", Icon = "play", Default = false})
 Options.AutoFarmLevels:OnChanged(function()
     isLevelFarming = Options.AutoFarmLevels.Value
     if isLevelFarming then
@@ -433,20 +431,6 @@ Options.AutoFarmLevels:OnChanged(function()
     end
 end)
 
-Tabs.AutoFarmLevels:AddDropdown("SelectSkills", {
-    Title = "Select Skills",
-    Description = "Choose multiple skills to use",
-    Values = getPlayerSkills(),
-    Multi = true,
-    Default = {}
-})
-
-LocalPlayer.CharacterAdded:Connect(function()
-    if Tabs.AutoFarmLevels then
-        Options.SelectSkills:SetValues(getPlayerSkills())
-    end
-end)
-
 -- Tab: Boss Farm
 local isBossFarming = false
 local selectedBosses = {}
@@ -458,9 +442,8 @@ local bossList = {
     "Jotaro Over Heaven", "Alternate Jotaro Part 4", "JohnnyJoestar", "Giorno Giovanna Requiem"
 }
 
--- ตำแหน่งเกิดของ Alternate Jotaro Part 4 (ตัวอย่างสมมติ ต้องแทนที่ด้วยพิกัดจริงในเกม)
 local bossSpawnLocations = {
-    ["Alternate Jotaro Part 4"] = CFrame.new(1234, 567, 890) -- เปลี่ยนพิกัดนี้ให้ตรงกับจุดเกิดจริง
+    ["Alternate Jotaro Part 4"] = CFrame.new(1234, 567, 890)
 }
 
 local function checkAliveBosses()
@@ -476,7 +459,6 @@ end
 local function findDungeonMinions()
     local minions = {}
     for _, entity in pairs(Workspace.Living:GetChildren()) do
-        -- สมมติว่ามินเนี่ยนมีชื่อที่มีคำว่า "Minion" หรือกำหนดชื่ออื่นตามเกม
         if entity.Name:find("Minion") and entity:FindFirstChild("Humanoid") and entity.Humanoid.Health > 0 then
             table.insert(minions, entity)
         end
@@ -490,25 +472,22 @@ local function clearDungeonMinions()
     local hrp = char.HumanoidRootPart
     local minions = findDungeonMinions()
 
-    if #minions == 0 then return true end -- ไม่มีมินเนี่ยนให้เคลียร์
+    if #minions == 0 then return true end
 
     for _, minion in pairs(minions) do
         teleportToTarget(minion)
         if char:FindFirstChild("Aura") and not char.Aura.Value then
             fireServerSafe(char.StandEvents.Summon)
         end
-        if char:FindFirstChild("StandEvents") and not LocalPlayer.PlayerGui.CDgui.fortnite:FindFirstChild("Punch") then
-            fireServerSafe(char.StandEvents.M1)
-        end
-        local selectedSkills = Options.SelectBossSkills and Options.SelectBossSkills.Value or {}
+        local selectedSkills = Options.SelectedSkills and Options.SelectedSkills.Value or {}
         if next(selectedSkills) then
             useSelectedSkills(char, selectedSkills)
         elseif isUsingAllSkills then
             useAllSkills(char)
         end
-        task.wait(0.5) -- รอเล็กน้อยเพื่อให้โจมตีมินเนี่ยน
+        task.wait(0.5)
     end
-    return #findDungeonMinions() == 0 -- คืนค่า true ถ้ามินเนี่ยนถูกเคลียร์หมด
+    return #findDungeonMinions() == 0
 end
 
 local function teleportToBossSpawn(bossName)
@@ -534,7 +513,6 @@ local function startBossFarming()
         local aliveBosses = checkAliveBosses()
         
         if #aliveBosses > 0 and not isFightingBosses then
-            -- บอสเกิดแล้ว เตรียมฟาร์มบอส
             if isFarming then
                 previousFarmMode = "FarmingQuests"
                 isFarming = false
@@ -551,13 +529,9 @@ local function startBossFarming()
         end
         
         if isFightingBosses and #aliveBosses > 0 then
-            -- ฟาร์มบอส
             for _, targetBoss in pairs(aliveBosses) do
                 if targetBoss.Name == "Alternate Jotaro Part 4" then
-                    -- เคลียร์มินเนี่ยนก่อนฟาร์ม Alternate Jotaro Part 4
-                    if clearDungeonMinions() then
-                        teleportToTarget(targetBoss)
-                    end
+                    if clearDungeonMinions() then teleportToTarget(targetBoss) end
                 else
                     teleportToTarget(targetBoss)
                 end
@@ -572,10 +546,7 @@ local function startBossFarming()
                     if char:FindFirstChild("Aura") and not char.Aura.Value then
                         fireServerSafe(char.StandEvents.Summon)
                     end
-                    if char:FindFirstChild("StandEvents") and not LocalPlayer.PlayerGui.CDgui.fortnite:FindFirstChild("Punch") then
-                        fireServerSafe(char.StandEvents.M1)
-                    end
-                    local selectedSkills = Options.SelectBossSkills and Options.SelectBossSkills.Value or {}
+                    local selectedSkills = Options.SelectedSkills and Options.SelectedSkills.Value or {}
                     if next(selectedSkills) then
                         useSelectedSkills(char, selectedSkills)
                     elseif isUsingAllSkills then
@@ -584,7 +555,6 @@ local function startBossFarming()
                 end
             end
         elseif isFightingBosses and #aliveBosses == 0 then
-            -- บอสตายหมด กลับไปฟาร์มโหมดก่อนหน้า
             if bodyPosition then bodyPosition:Destroy() bodyPosition = nil end
             if bodyGyro then bodyGyro:Destroy() bodyGyro = nil end
             local char = waitForCharacter()
@@ -605,42 +575,25 @@ local function startBossFarming()
             isFightingBosses = false
         end
         
-        -- รอจนกว่าบอสจะเกิด ถ้าเป็น Alternate Jotaro Part 4 ให้วาร์ปไปจุดเกิด
         if #aliveBosses == 0 and not isFightingBosses then
             if table.find(selectedBosses, "Alternate Jotaro Part 4") then
                 teleportToBossSpawn("Alternate Jotaro Part 4")
                 Fluent:Notify({Title = "Info", Content = "Teleporting to Alternate Jotaro Part 4 spawn point.", Duration = 3})
             end
-            task.wait(1) -- รอและเช็คใหม่
+            task.wait(1)
         end
     end)
 end
 
-Tabs.BossFarm:AddDropdown("SelectBosses", {Title = "Select Bosses", Values = bossList, Multi = true, Default = {}})
+Tabs.BossFarm:AddDropdown("SelectBosses", {Title = "Bosses", Icon = "users", Values = bossList, Multi = true, Default = {}})
 Options.SelectBosses:OnChanged(function(Value)
     selectedBosses = {}
     for boss, enabled in pairs(Value) do
-        if enabled then
-            table.insert(selectedBosses, boss)
-        end
+        if enabled then table.insert(selectedBosses, boss) end
     end
 end)
 
-Tabs.BossFarm:AddDropdown("SelectBossSkills", {
-    Title = "Select Boss Skills",
-    Description = "Choose multiple skills to use against bosses",
-    Values = getPlayerSkills(),
-    Multi = true,
-    Default = {}
-})
-
-LocalPlayer.CharacterAdded:Connect(function()
-    if Tabs.BossFarm then
-        Options.SelectBossSkills:SetValues(getPlayerSkills())
-    end
-end)
-
-Tabs.BossFarm:AddToggle("AutoFarmBoss", {Title = "Auto Farm Boss", Description = "Toggle boss farming (waits for bosses to spawn)", Default = false})
+Tabs.BossFarm:AddToggle("AutoFarmBoss", {Title = "Auto Farm", Icon = "play", Default = false})
 Options.AutoFarmBoss:OnChanged(function()
     isBossFarming = Options.AutoFarmBoss.Value
     if isBossFarming then
@@ -668,7 +621,8 @@ do
         "StarPlatinum:StoneOcean", "CrazyDiamond", "Aerosmith", "StoneFree", "TheEmperor", "TheHand",
         "softandwet", "magiciansred", "DiverDown", "PurpleSmoke", "WhiteSnake", "TheWorld", "WeatherReport",
         "D4C", "DirtyDeedsDoneDirtCheap", "GoldenExperience", "KingCrimson", "PremierMacho",
-        "SilverChariotOVA", "TheWorldOVA", "Jotaro'sStarPlatinum", "StarPlatinum OVA"
+        "SilverChariotOVA", "TheWorldOVA", "Jotaro'sStarPlatinum", "StarPlatinum OVA", "TuskAct1",
+        "TheWorld:AlternativeUniverse", "Whitesnake", "Dio'sThe World"
     }
 
     local ChargedArrowsList = {
@@ -686,10 +640,11 @@ do
     local WhitelistedAttributes = {}
     local ArrowToUse = "Stand Arrow"
     local CheckStand, CheckAttri = false, false
+    local CheckStandOrAttri, CheckStandAndAttri = false, false
     local BeginFarm = false
     local MarketplaceService = game:GetService("MarketplaceService")
-    local gamepassId1 = 123456 -- เปลี่ยนเป็น ID เกมพาสสำหรับ Slot3
-    local gamepassId2 = 789012 -- เปลี่ยนเป็น ID เกมพาสสำหรับ Slot6 (ถ้าแยก)
+    local gamepassId1 = 123456
+    local gamepassId2 = 789012
 
     local function normalizeString(str)
         return str:gsub("[%s:']", ""):upper()
@@ -719,9 +674,7 @@ do
             task.wait(0.1)
         end
         
-        if not itemInBackpack then
-            return false
-        end
+        if not itemInBackpack then return false end
         
         char.Humanoid:EquipTool(itemInBackpack)
         task.wait(0.1)
@@ -742,9 +695,20 @@ do
         stand = normalizeString(stand)
         attribute = tostring(attribute)
 
-        local standMatch = not CheckStand or (CheckStand and table.find(WhitelistedStands, stand))
-        local attriMatch = not CheckAttri or (CheckAttri and table.find(WhitelistedAttributes, attribute))
-        return standMatch and attriMatch
+        local standMatch = table.find(WhitelistedStands, stand)
+        local attriMatch = table.find(WhitelistedAttributes, attribute)
+
+        if CheckStand and not CheckAttri and not CheckStandOrAttri and not CheckStandAndAttri then
+            return standMatch
+        elseif CheckAttri and not CheckStand and not CheckStandOrAttri and not CheckStandAndAttri then
+            return attriMatch
+        elseif CheckStandOrAttri then
+            return standMatch or attriMatch
+        elseif CheckStandAndAttri then
+            return standMatch and attriMatch
+        else
+            return false
+        end
     end
 
     local function resetCharacterState()
@@ -759,9 +723,7 @@ do
 
     local function cycleStand()
         local char = waitForCharacter()
-        if not char then
-            return false, "no_character"
-        end
+        if not char then return false, "no_character" end
 
         local stand = LocalPlayer.Data and LocalPlayer.Data.Stand and LocalPlayer.Data.Stand.Value or "None"
         stand = normalizeString(stand)
@@ -775,9 +737,7 @@ do
                 table.insert(slotsToCheck, 3)
                 table.insert(slotsToCheck, 6)
             end
-            if level >= 120 then
-                table.insert(slotsToCheck, 5)
-            end
+            if level >= 120 then table.insert(slotsToCheck, 5) end
 
             for _, i in ipairs(slotsToCheck) do
                 if i ~= 4 then
@@ -789,30 +749,23 @@ do
                         end
                         if LocalPlayer.Data and LocalPlayer.Data.Stand and LocalPlayer.Data.Stand.Value == "None" then
                             stored = true
-                            notify("Success", "Stand stored in Slot " .. i, 3)
+                            notify("Success", "Stand stored in Slot " .. i .. ". Continuing farm...", 3)
+                            return true, "stored"
                         end
                         break
                     end
                 end
             end
-            if stored then
-                return true, "stored" -- เจอและเก็บสำเร็จ
-            else
-                return false, "no_slots" -- เจอแต่ไม่มีสล็อตว่าง
-            end
+            if stored then return true, "stored" else return false, "no_slots" end
         elseif stand == "NONE" then
-            if not useItem(ArrowToUse, char) then
-                return false, "no_arrow"
-            end
+            if not useItem(ArrowToUse, char) then return false, "no_arrow" end
             local timeout = tick() + 5
             while tick() < timeout and LocalPlayer.Data and LocalPlayer.Data.Stand and LocalPlayer.Data.Stand.Value == "None" and BeginFarm do
                 task.wait(0.1)
             end
             return true, "used_arrow"
         else
-            if not useItem("Rokakaka", char) then
-                return false, "no_rokakaka"
-            end
+            if not useItem("Rokakaka", char) then return false, "no_rokakaka" end
             local timeout = tick() + 5
             while tick() < timeout and LocalPlayer.Data and LocalPlayer.Data.Stand and LocalPlayer.Data.Stand.Value ~= "None" and BeginFarm do
                 task.wait(0.1)
@@ -821,73 +774,75 @@ do
         end
     end
 
-    Tabs.StandFarm:AddDropdown("SelectStands", {
-        Title = "Select Stands",
-        Description = "Choose stands to farm",
-        Values = StandArrowsList,
-        Multi = true,
-        Default = {}
-    })
+    Tabs.StandFarm:AddDropdown("SelectStands", {Title = "Stands", Icon = "star", Values = StandArrowsList, Multi = true, Default = {}})
     Options.SelectStands:OnChanged(function(Value)
         WhitelistedStands = {}
         for stand, state in pairs(Value) do
-            if state then
-                table.insert(WhitelistedStands, normalizeString(stand))
-            end
+            if state then table.insert(WhitelistedStands, normalizeString(stand)) end
         end
     end)
 
-    Tabs.StandFarm:AddDropdown("SelectAttributes", {
-        Title = "Select Attributes",
-        Description = "Choose attributes to farm",
-        Values = AttributesList,
-        Multi = true,
-        Default = {}
-    })
+    Tabs.StandFarm:AddDropdown("SelectAttributes", {Title = "Attributes", Icon = "award", Values = AttributesList, Multi = true, Default = {}})
     Options.SelectAttributes:OnChanged(function(Value)
         WhitelistedAttributes = {}
         for attr, state in pairs(Value) do
-            if state then
-                table.insert(WhitelistedAttributes, attr)
-            end
+            if state then table.insert(WhitelistedAttributes, attr) end
         end
     end)
 
-    Tabs.StandFarm:AddButton({Title = "Use Stand Arrows", Callback = function() ArrowToUse = "Stand Arrow" end})
-    Tabs.StandFarm:AddButton({Title = "Use Charged Arrows", Callback = function() ArrowToUse = "Charged Arrow" end})
+    Tabs.StandFarm:AddButton({Title = "Stand Arrows", Icon = "arrow-right", Callback = function() ArrowToUse = "Stand Arrow" end})
+    Tabs.StandFarm:AddButton({Title = "Charged Arrows", Icon = "zap", Callback = function() ArrowToUse = "Charged Arrow" end})
 
-    Tabs.StandFarm:AddToggle("StandCheck", {Title = "Stand Check", Default = false})
-    Options.StandCheck:OnChanged(function() CheckStand = Options.StandCheck.Value end)
+    Tabs.StandFarm:AddToggle("StandCheck", {Title = "Stand Check", Icon = "check", Default = false})
+    Options.StandCheck:OnChanged(function() 
+        CheckStand = Options.StandCheck.Value 
+        if CheckStand then CheckStandOrAttri = false; CheckStandAndAttri = false end
+    end)
 
-    Tabs.StandFarm:AddToggle("AttributeCheck", {Title = "Attribute Check", Default = false})
-    Options.AttributeCheck:OnChanged(function() CheckAttri = Options.AttributeCheck.Value end)
+    Tabs.StandFarm:AddToggle("AttributeCheck", {Title = "Attribute Check", Icon = "check-circle", Default = false})
+    Options.AttributeCheck:OnChanged(function() 
+        CheckAttri = Options.AttributeCheck.Value 
+        if CheckAttri then CheckStandOrAttri = false; CheckStandAndAttri = false end
+    end)
 
-    Tabs.StandFarm:AddButton({Title = "Open Stand Storage", Callback = function() 
+    Tabs.StandFarm:AddToggle("StandOrAttriCheck", {Title = "Stand OR Attribute", Icon = "git-branch", Default = false})
+    Options.StandOrAttriCheck:OnChanged(function() 
+        CheckStandOrAttri = Options.StandOrAttriCheck.Value 
+        if CheckStandOrAttri then CheckStand = false; CheckAttri = false; CheckStandAndAttri = false end
+    end)
+
+    Tabs.StandFarm:AddToggle("StandAndAttriCheck", {Title = "Stand AND Attribute", Icon = "link", Default = false})
+    Options.StandAndAttriCheck:OnChanged(function() 
+        CheckStandAndAttri = Options.StandAndAttriCheck.Value 
+        if CheckStandAndAttri then CheckStand = false; CheckAttri = false; CheckStandOrAttri = false end
+    end)
+
+    Tabs.StandFarm:AddButton({Title = "Open Storage", Icon = "archive", Callback = function() 
         fireServerSafe(Workspace.Map.NPCs.admpn.Done) 
     end})
 
-    Tabs.StandFarm:AddButton({Title = "Reset Character", Callback = function()
+    Tabs.StandFarm:AddButton({Title = "Reset", Icon = "refresh-cw", Callback = function()
         resetCharacterState()
         notify("Info", "Character state reset!", 3)
     end})
 
-    Tabs.StandFarm:AddToggle("StartStandFarm", {Title = "Start Stand Farm", Default = false})
+    Tabs.StandFarm:AddToggle("StartStandFarm", {Title = "Start Farm", Icon = "play", Default = false})
     Options.StartStandFarm:OnChanged(function()
         BeginFarm = Options.StartStandFarm.Value
         if BeginFarm then
-            if not CheckStand and not CheckAttri then
-                notify("Error", "Enable Stand Check or Attribute Check first!", 5)
+            if not (CheckStand or CheckAttri or CheckStandOrAttri or CheckStandAndAttri) then
+                notify("Error", "Enable at least one check type first!", 5)
                 BeginFarm = false
                 Options.StartStandFarm:SetValue(false)
                 return
             end
-            if CheckStand and #WhitelistedStands == 0 then
+            if (CheckStand or CheckStandOrAttri or CheckStandAndAttri) and #WhitelistedStands == 0 then
                 notify("Error", "Select at least one Stand!", 5)
                 BeginFarm = false
                 Options.StartStandFarm:SetValue(false)
                 return
             end
-            if CheckAttri and #WhitelistedAttributes == 0 then
+            if (CheckAttri or CheckStandOrAttri or CheckStandAndAttri) and #WhitelistedAttributes == 0 then
                 notify("Error", "Select at least one Attribute!", 5)
                 BeginFarm = false
                 Options.StartStandFarm:SetValue(false)
@@ -905,35 +860,22 @@ do
                 while BeginFarm do
                     if isItemFarming then
                         notify("Warning", "Item Farm is active, waiting to resume Stand Farm...", 5)
-                        while isItemFarming and BeginFarm do
-                            task.wait(1)
-                        end
+                        while isItemFarming and BeginFarm do task.wait(1) end
                         if not BeginFarm then break end
                         notify("Info", "Resuming Stand Farm after Item Farm stopped", 3)
                     end
                     
                     local success, reason = cycleStand()
-                    if success and reason == "stored" then
-                        notify("Info", "Desired Stand found and stored! Stopping farm...", 5)
-                        BeginFarm = false
-                        Options.StartStandFarm:SetValue(false)
-                        break
-                    elseif not success then
+                    if not success then
                         if reason == "no_character" then
                             notify("Warning", "Character not found, waiting for respawn...", 5)
-                            while not LocalPlayer.Character and BeginFarm do
-                                task.wait(1)
-                            end
+                            while not LocalPlayer.Character and BeginFarm do task.wait(1) end
                         elseif reason == "no_arrow" then
                             notify("Warning", "Out of " .. ArrowToUse .. ", waiting for more...", 5)
-                            while not LocalPlayer.Backpack:FindFirstChild(ArrowToUse) and BeginFarm do
-                                task.wait(1)
-                            end
+                            while not LocalPlayer.Backpack:FindFirstChild(ArrowToUse) and BeginFarm do task.wait(1) end
                         elseif reason == "no_rokakaka" then
                             notify("Warning", "Out of Rokakaka, waiting for more...", 5)
-                            while not LocalPlayer.Backpack:FindFirstChild("Rokakaka") and BeginFarm do
-                                task.wait(1)
-                            end
+                            while not LocalPlayer.Backpack:FindFirstChild("Rokakaka") and BeginFarm do task.wait(1) end
                         elseif reason == "no_slots" then
                             notify("Warning", "No empty slots available! Stopping farm...", 5)
                             BeginFarm = false
@@ -958,7 +900,7 @@ end
 -- Tab: Auto Buy Item
 local Amount = 1
 
-Tabs.AutoBuy:AddButton({Title = "Teleport to Shop", Callback = function()
+Tabs.AutoBuy:AddButton({Title = "Teleport to Shop", Icon = "map-pin", Callback = function()
     local char = waitForCharacter()
     if char then
         Teleport(char.HumanoidRootPart, CFrame.new(11927.1, -3.28935, -4488.59))
@@ -968,17 +910,17 @@ Tabs.AutoBuy:AddButton({Title = "Teleport to Shop", Callback = function()
     end
 end})
 
-Tabs.AutoBuy:AddInput("BuyAmount", {Title = "Enter Amount", Default = "1", Numeric = true, Callback = function(Value) Amount = tonumber(Value) or 1 end})
+Tabs.AutoBuy:AddInput("BuyAmount", {Title = "Amount", Icon = "hash", Default = "1", Numeric = true, Callback = function(Value) Amount = tonumber(Value) or 1 end})
 
 local buyItems = {
-    {"Rokakaka (2,500c)", "MerchantAU", "Option2"},
-    {"Stand Arrow (3,500c)", "MerchantAU", "Option4"},
-    {"Charged Arrow (50,000c)", "Merchantlvl120", "Option2"},
-    {"Dio Diary (1,500,000c)", "Merchantlvl120", "Option3"},
-    {"Requiem Arrow (1,500,000c)", "Merchantlvl120", "Option4"}
+    {"Rokakaka (2,500c)", "MerchantAU", "Option2", "apple"},
+    {"Stand Arrow (3,500c)", "MerchantAU", "Option4", "arrow-right"},
+    {"Charged Arrow (50,000c)", "Merchantlvl120", "Option2", "zap"},
+    {"Dio Diary (1,500,000c)", "Merchantlvl120", "Option3", "book"},
+    {"Requiem Arrow (1,500,000c)", "Merchantlvl120", "Option4", "arrow-up"}
 }
 for _, item in ipairs(buyItems) do
-    Tabs.AutoBuy:AddButton({Title = item[1], Callback = function()
+    Tabs.AutoBuy:AddButton({Title = item[1], Icon = item[4], Callback = function()
         for i = 1, Amount do
             ReplicatedStorage.Events.BuyItem:FireServer(item[2], item[3])
         end
@@ -1084,7 +1026,7 @@ local function adjustDistanceIfNoDamage(boss)
     end
 end
 
-Tabs.DungeonFarm:AddDropdown("ChooseDungeon", {Title = "Choose Dungeon", Values = DunLvl, Default = 1})
+Tabs.DungeonFarm:AddDropdown("ChooseDungeon", {Title = "Dungeon", Icon = "list", Values = DunLvl, Default = 1})
 Options.ChooseDungeon:OnChanged(function()
     ChDun = Options.ChooseDungeon.Value
     currentDistance = dungeonSettings[ChDun].baseDistance
@@ -1094,7 +1036,7 @@ Options.ChooseDungeon:OnChanged(function()
     lastDamageCheck = 0
 end)
 
-Tabs.DungeonFarm:AddToggle("AutoFarmDungeon", {Title = "Auto Farm Dungeon", Default = false})
+Tabs.DungeonFarm:AddToggle("AutoFarmDungeon", {Title = "Auto Farm", Icon = "play", Default = false})
 Options.AutoFarmDungeon:OnChanged(function()
     isDungeonFarming = Options.AutoFarmDungeon.Value
     if isFarming or isLevelFarming or isBossFarming then
@@ -1158,10 +1100,12 @@ Options.AutoFarmDungeon:OnChanged(function()
                         if char:FindFirstChild("Aura") and not char.Aura.Value then
                             fireServerSafe(char.StandEvents.Summon)
                         end
-                        if char:FindFirstChild("StandEvents") and not LocalPlayer.PlayerGui.CDgui.fortnite:FindFirstChild("Punch") then
-                            fireServerSafe(char.StandEvents.M1)
+                        local selectedSkills = Options.SelectedSkills and Options.SelectedSkills.Value or {}
+                        if next(selectedSkills) then
+                            useSelectedSkills(char, selectedSkills)
+                        elseif isUsingAllSkills then
+                            useAllSkills(char)
                         end
-                        if isUsingAllSkills then useAllSkills(char) end
                     else
                         if now - lastTeleport > 5 then
                             if safePosition then
@@ -1183,22 +1127,13 @@ Options.AutoFarmDungeon:OnChanged(function()
     end
 end)
 
-Tabs.DungeonFarm:AddSlider("DungeonYOffset", {Title = "Y Offset", Description = "Adjust hover height", Default = 7, Min = -30, Max = 30, Rounding = 1})
-Options.DungeonYOffset:OnChanged(function(Value)
-    Disc = Value
-end)
+Tabs.DungeonFarm:AddSlider("DungeonYOffset", {Title = "Y Offset", Icon = "move-up", Default = 7, Min = -30, Max = 30, Rounding = 1})
+Options.DungeonYOffset:OnChanged(function(Value) Disc = Value end)
 
-Tabs.DungeonFarm:AddSlider("DungeonZOffset", {Title = "Z Offset", Description = "Adjust forward/backward distance", Default = 0, Min = -30, Max = 30, Rounding = 1})
-Options.DungeonZOffset:OnChanged(function(Value)
-    Disc3 = Value
-end)
+Tabs.DungeonFarm:AddSlider("DungeonZOffset", {Title = "Z Offset", Icon = "move-right", Default = 0, Min = -30, Max = 30, Rounding = 1})
+Options.DungeonZOffset:OnChanged(function(Value) Disc3 = Value end)
 
-Tabs.DungeonFarm:AddToggle("DungeonUseAllSkills", {Title = "Use All Skills", Description = "Toggle using all skills", Default = false})
-Options.DungeonUseAllSkills:OnChanged(function()
-    isUsingAllSkills = Options.DungeonUseAllSkills.Value
-end)
-
-Tabs.DungeonFarm:AddButton({Title = "Refresh Character", Callback = function()
+Tabs.DungeonFarm:AddButton({Title = "Refresh", Icon = "refresh-cw", Callback = function()
     local char = waitForCharacter()
     if char then
         if bodyPosition then bodyPosition:Destroy() bodyPosition = nil end
@@ -1220,7 +1155,7 @@ local function safeTeleport(part, cframe)
     end
 end
 
-Tabs.ItemFarm:AddToggle("FarmItems", {Title = "Farm Items", Description = "Collect nearby items", Default = false})
+Tabs.ItemFarm:AddToggle("FarmItems", {Title = "Farm Items", Icon = "play", Default = false})
 Options.FarmItems:OnChanged(function()
     isItemFarming = Options.FarmItems.Value
     _G.On = isItemFarming
@@ -1232,9 +1167,7 @@ Options.FarmItems:OnChanged(function()
         return
     end
 
-    if itemConnection then
-        itemConnection:Disconnect()
-    end
+    if itemConnection then itemConnection:Disconnect() end
 
     if isItemFarming then
         itemConnection = RunService.Heartbeat:Connect(function()
@@ -1313,40 +1246,150 @@ local function antiAFK()
     end)
 end
 
-Tabs.Settings:AddToggle("AntiAFK", {Title = "Anti-AFK", Description = "Prevent AFK kick", Default = false})
+Tabs.Settings:AddToggle("AntiAFK", {Title = "Anti-AFK", Icon = "clock", Default = false})
 Options.AntiAFK:OnChanged(function()
     isAntiAFK = Options.AntiAFK.Value
     if isAntiAFK then antiAFK() end
 end)
 
-Window:SelectTab(1)
-Fluent:Notify({Title = "EDU HUB", Content = "The script has been loaded.", Duration = 8})
-SaveManager:LoadAutoloadConfig()
+Tabs.Settings:AddToggle("UseAllSkills", {Title = "All Skills", Icon = "wand", Default = false})
+Options.UseAllSkills:OnChanged(function()
+    isUsingAllSkills = Options.UseAllSkills.Value
+end)
+
+Tabs.Settings:AddDropdown("SelectedSkills", {Title = "Skills", Icon = "list", Values = getPlayerSkills(), Multi = true, Default = {}})
+
+Tabs.Settings:AddButton({Title = "Refresh Skills", Icon = "refresh-cw", Callback = function()
+    local newSkills = getPlayerSkills()
+    Options.SelectedSkills:SetValues(newSkills)
+    local currentSelected = Options.SelectedSkills.Value
+    local updatedSelected = {}
+    for skill, enabled in pairs(currentSelected) do
+        if enabled and table.find(newSkills, skill) then
+            updatedSelected[skill] = true
+        end
+    end
+    Options.SelectedSkills:SetValue(updatedSelected)
+    Fluent:Notify({Title = "Info", Content = "Skills refreshed successfully!", Duration = 3})
+end})
+
+local VirtualInputManager = game:GetService("VirtualInputManager")
+local UserInputService = game:GetService("UserInputService")
+
+local availableKeys = {
+    "E", "R", "T", "Y", "J", "H", "F", "Z", "X", "C", "V",
+    "LeftClick", "RightClick"
+}
+
+_G.Asd = false
+local selectedKeys = {}
+local toggleKey = Enum.KeyCode.P
+
+local function pressKey(key)
+    if key == "E" then
+        VirtualInputManager:SendKeyEvent(true, "E", false, game)
+        task.wait(4)
+        VirtualInputManager:SendKeyEvent(false, "E", false, game)
+    elseif key == "LeftClick" then
+        VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 0)
+        task.wait(0.05)
+        VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 0)
+    elseif key == "RightClick" then
+        VirtualInputManager:SendMouseButtonEvent(0, 0, 1, true, game, 0)
+        task.wait(0.05)
+        VirtualInputManager:SendMouseButtonEvent(0, 0, 1, false, game, 0)
+    else
+        VirtualInputManager:SendKeyEvent(true, key, false, game)
+        task.wait(0.1)
+        VirtualInputManager:SendKeyEvent(false, key, false, game)
+    end
+end
+
+local function useSelectedKeys()
+    task.spawn(function()
+        while _G.Asd do
+            local char = waitForCharacter()
+            if not char then
+                task.wait(1)
+                continue
+            end
+            for key, enabled in pairs(selectedKeys) do
+                if enabled then
+                    pressKey(key)
+                    if key == "E" then task.wait(0.5)
+                    elseif key == "LeftClick" or key == "RightClick" then task.wait(0.0)
+                    else task.wait(0.2) end
+                end
+            end
+            task.wait(0.5)
+        end
+    end)
+end
+
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    if input.KeyCode == toggleKey then
+        _G.Asd = not _G.Asd
+        if _G.Asd then
+            if next(selectedKeys) == nil then
+                Fluent:Notify({Title = "Error", Content = "Please select at least one key first!", Duration = 5})
+                _G.Asd = false
+                Options.UseKeySkills:SetValue(false)
+                return
+            end
+            Fluent:Notify({Title = "Info", Content = "Key Skills activated with '" .. toggleKey.Name .. "'!", Duration = 3})
+            useSelectedKeys()
+            Options.UseKeySkills:SetValue(true)
+        else
+            Fluent:Notify({Title = "Info", Content = "Key Skills stopped with '" .. toggleKey.Name .. "'!", Duration = 3})
+            Options.UseKeySkills:SetValue(false)
+        end
+    end
+end)
+
+Tabs.Settings:AddDropdown("SelectKeySkills", {Title = "Key Skills", Icon = "keyboard", Values = availableKeys, Multi = true, Default = {}})
+Options.SelectKeySkills:OnChanged(function(Value)
+    selectedKeys = {}
+    for key, state in pairs(Value) do
+        if state then selectedKeys[key] = true end
+    end
+end)
+
+Tabs.Settings:AddToggle("UseKeySkills", {Title = "Use Keys", Icon = "play", Default = false})
+Options.UseKeySkills:OnChanged(function()
+    _G.Asd = Options.UseKeySkills.Value
+    if _G.Asd then
+        if next(selectedKeys) == nil then
+            Fluent:Notify({Title = "Error", Content = "Please select at least one key first!", Duration = 5})
+            _G.Asd = false
+            Options.UseKeySkills:SetValue(false)
+            return
+        end
+        Fluent:Notify({Title = "Info", Content = "Key Skills activated via GUI!", Duration = 3})
+        useSelectedKeys()
+    else
+        Fluent:Notify({Title = "Info", Content = "Key Skills stopped via GUI!", Duration = 3})
+    end
+end)
 
 -- Floating Button
-local UserInputService = game:GetService("UserInputService")
-local TweenService = game:GetService("TweenService")
-
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")
 ScreenGui.Name = "FloatingButtonGui"
 ScreenGui.ResetOnSpawn = false
 
 local FloatingButton = Instance.new("ImageButton")
-FloatingButton.Size = UDim2.new(0, 50, 0, 50)
+FloatingButton.Size = UDim2.new(0, 40, 0, 40)
 FloatingButton.Position = UDim2.new(0.5, -25, 0.5, -25)
 FloatingButton.BackgroundTransparency = 1
-FloatingButton.Image = "http://www.roblox.com/asset/?id=12514663645"
+FloatingButton.Image = "rbxassetid://12514663645"
 FloatingButton.Parent = ScreenGui
 
 local UICorner = Instance.new("UICorner")
 UICorner.CornerRadius = UDim.new(1, 0)
 UICorner.Parent = FloatingButton
 
-local dragging
-local dragInput
-local dragStart
-local startPos
+local dragging, dragInput, dragStart, startPos
 
 FloatingButton.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
@@ -1355,9 +1398,7 @@ FloatingButton.InputBegan:Connect(function(input)
         startPos = FloatingButton.Position
         
         input.Changed:Connect(function()
-            if input.UserInputState == Enum.UserInputState.End then
-                dragging = false
-            end
+            if input.UserInputState == Enum.UserInputState.End then dragging = false end
         end)
     end
 end)
@@ -1379,17 +1420,14 @@ UserInputService.InputChanged:Connect(function(input)
 end)
 
 local isUIVisible = true
-Window.MinimizeKey = Enum.KeyCode.RightControl
+local TweenService = game:GetService("TweenService")
 
 FloatingButton.MouseButton1Click:Connect(function()
     isUIVisible = not isUIVisible
-    if isUIVisible then
-        Window:Minimize(false)
-        TweenService:Create(FloatingButton, TweenInfo.new(0.3), {ImageTransparency = 0}):Play()
-    else
-        Window:Minimize(true)
-        TweenService:Create(FloatingButton, TweenInfo.new(0.3), {ImageTransparency = 0.5}):Play()
-    end
+    Window:Minimize(not isUIVisible)
+    TweenService:Create(FloatingButton, TweenInfo.new(0.3), {ImageTransparency = isUIVisible and 0 or 0.5}):Play()
 end)
 
-Window:Minimize(false)
+Window:SelectTab(1)
+Fluent:Notify({Title = "EDU HUB", Content = "The script has been loaded.", Duration = 8})
+SaveManager:LoadAutoloadConfig()
